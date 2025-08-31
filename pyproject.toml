@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "DT-LLM-SDM"
+version = "0.1.0"
+description = "DT reinforced with LLM on SDM"
+authors = ["Bilgehan Emiral <bilgehan.emiral@gmail.com>"]
+packages = [
+    { include = "ingestion" },
+    { include = "llm" },
+    { include = "data" },
+    { include = "analytics" },
+    { include = "utils" }
+]
+
+[tool.poetry.dependencies]
+python = "3.12.11"
+requests = "^2.31.0"
+pandas = "^2.2.0"
+matplotlib = "^3.8.0"
+anyio = "^4.0.0"
+tenacity = "^9.0.0"
+langfuse = "^3.3.2"
+anthropic = "^0.64.0"
+typer = "^0.17.3"
+rich = "^14.1.0"
+loguru = "^0.7.3"
+dotenv = "^0.9.9"
+pydantic-settings = "^2.10.1"
+pymongo = "^4.14.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+ruff = "^0.5.0"
+mypy = "^1.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+# Run Ruff on these paths
+src = ["./llm", "./config.py"]
+
+# Opt-in to rules
+select = [
+    "E",   # pycodestyle (PEP8)
+    "F",   # pyflakes
+    "I",   # isort-like import sorting
+    "UP",  # pyupgrade (modern Python idioms)
+]
+
+# Respect Black's formatting style
+line-length = 88
+indent-width = 4
+
+[tool.ruff.format]
+# Make Ruff format code like Black
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
