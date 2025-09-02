@@ -162,7 +162,7 @@ Core components
 Resilience policies
 
 - Network-layer retry: in adapter (AnthropicAdapter.send) using Tenacity; handles 429/5xx/timeout with exponential backoff.
-- Validation-layer retry: in GenericLLMTask only around JSON parsing; deterministic schema violations (Pydantic ValidationError) are not re-sent to the API.
+- Validation-layer retry: in GenericLLMTask only around JSON parsing
 - Hooks are best-effort: errors are logged and do not fail the main flow.
 
 Observability

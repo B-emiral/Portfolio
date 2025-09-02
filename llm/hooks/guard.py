@@ -63,9 +63,7 @@ async def guard_output(payload: dict[str, Any]) -> None:
         elif isinstance(validated, str) and validated.strip().startswith("{"):
             repaired = validated
         else:
-            logger.warning(
-                "Guardrails returned non-JSON; leaving original text unchanged"
-            )
+            logger.warning("Guardrails returned non-JSON; leaving original text")
             return
 
         _set_text(response, repaired, kind)
