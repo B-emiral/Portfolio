@@ -1,0 +1,40 @@
+# profiles.toml
+
+[dev]
+profiles = "anthropic/haiku"
+hooksets = "dev"
+
+
+[test]
+profiles = "anthropic/haiku"
+hooksets = "test"
+
+
+[hooksets."dev"]
+before = [
+  "llm.hooks.log_request"
+]
+after = [
+  "llm.hooks.mongo_insert",
+  "llm.hooks.langfuse_track",
+  "llm.hooks.guard_output"
+]
+
+[hooksets."test"]
+before = [
+  "llm.hooks.log_request"
+]
+after = [
+  "llm.hooks.langfuse_track",
+  "llm.hooks.guard_output",
+]
+
+
+[profiles."anthropic/haiku"]
+provider = "anthropic"
+model = "claude-3-5-haiku-20241022"
+
+
+[profiles."anthropic/sonnet"]
+provider = "anthropic"
+model = "claude-3-5-sonnet-20241022"
