@@ -1,3 +1,64 @@
+[https://github.com/B-emiral/Portfolio](https://github.com/B-emiral/Portfolio)
+
+# DESIGN
+High-level architecture (Modules & Adapters + Hooks)
+
+### LLM Package
+```
+┌───────────────────────────────┐
+│           profiles.toml       │
+│  • env -> profile, hookset    │
+│  • profile -> provider, model │
+└───────────────┬───────────────┘
+                │ (reads)
+                ▼
+┌───────────────────────────────┐
+│ llm/profiles.py (ProfileStore)│
+│  • resolve(env) → {provider,  │
+│    model, before/after hooks} │
+└───────────────┬───────────────┘
+                │ (constructs)
+                ▼
+┌───────────────────────────────┐
+│ runner.LLMClient              │
+│  • holds adapter + hooks      │
+│  • orchestrates send()        │
+└───────────────┬───────────────┘
+                │ (call)
+                │ INPUT: messages, prompt
+                ▼
+          ┌─────────────────────┐
+          │ BEFORE HOOKS        │
+          │ (llm.hooks.*)       │
+          └─────────┬───────────┘
+                    │
+                    ▼
+┌───────────────────────────────────────────┐
+│ adapters.AnthropicAdapter                 │
+│  • INPUT: messages, temperature           │
+│  • ACTION: call Anthropic SDK             │
+│  • OUTPUT: normalized dict response       │
+└───────────────┬───────────────────────────┘
+                │ (attach response to payload)
+                ▼
+          ┌─────────────────────┐
+          │ AFTER HOOKS         │
+          │ (llm.hooks.*)       │
+          └─────────┬───────────┘
+                    │ (e.g. mongo, langfuse, guard)
+                    ▼
+        ┌──────────────────────────┐
+        │ schemas.LLMCall          │
+        │  • validate payload      │
+        └──────────┬───────────────┘
+                   │ (insert)
+                   ▼
+        ┌──────────────────────────┐
+        │ db.py (MongoDB)          │
+        │  • insert_one()          │
+        └──────────────────────────┘
+```
+
 ### SETUP
     brew update
     brew install python@3.12
@@ -61,67 +122,7 @@
   - SQLAlchemy
 
 
-
-# DESIGN
-High-level architecture (Ports & Adapters + Hooks)
-
-### LLM Package
-```
-┌───────────────────────────────┐
-│           profiles.toml       │
-│  • env -> profile, hookset    │
-│  • profile -> provider, model │
-└───────────────┬───────────────┘
-                │ (reads)
-                ▼
-┌───────────────────────────────┐
-│ llm/profiles.py (ProfileStore)│
-│  • resolve(env) → {provider,  │
-│    model, before/after hooks} │
-└───────────────┬───────────────┘
-                │ (constructs)
-                ▼
-┌───────────────────────────────┐
-│ runner.LLMClient              │
-│  • holds adapter + hooks      │
-│  • orchestrates send()        │
-└───────────────┬───────────────┘
-                │ (call)
-                │ INPUT: messages, prompt
-                ▼
-          ┌─────────────────────┐
-          │ BEFORE HOOKS        │
-          │ (llm.hooks.*)       │
-          └─────────┬───────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────┐
-│ adapters.AnthropicAdapter                 │
-│  • INPUT: messages, temperature           │
-│  • ACTION: call Anthropic SDK             │
-│  • OUTPUT: normalized dict response       │
-└───────────────┬───────────────────────────┘
-                │ (attach response to payload)
-                ▼
-          ┌─────────────────────┐
-          │ AFTER HOOKS         │
-          │ (llm.hooks.*)       │
-          └─────────┬───────────┘
-                    │ (e.g. mongo, langfuse, guard)
-                    ▼
-        ┌──────────────────────────┐
-        │ schemas.LLMCall          │
-        │  • validate payload      │
-        └──────────┬───────────────┘
-                   │ (insert)
-                   ▼
-        ┌──────────────────────────┐
-        │ db.py (MongoDB)          │
-        │  • insert_one()          │
-        └──────────────────────────┘
-```
-
-Core components
+### Core components
 
 - Configuration
   - profiles.toml: env → profile, hookset; profile → provider/model; hookset → before/after dotted paths.
