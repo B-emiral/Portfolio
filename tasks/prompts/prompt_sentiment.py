@@ -23,21 +23,21 @@ FEW_SHOTS = [
 ]
 
 
-def build_sentiment_prompt(text: str, strategy: str = "basic") -> str:
+def build_sentiment_prompt(text: str, in_context_learning: str = "zero-shot") -> str:
     lines: list[str] = []
     lines.append(INSTRUCTION)
-    if strategy == "basic":
+    if in_context_learning == "zero-shot":
         pass
-    elif strategy == "fewshot":
+    elif in_context_learning == "few-shot":
         lines.append("Examples:")
         for ex in FEW_SHOTS:
             lines.append(
-                f'Input: "{ex["text"]}"\nOutput: '
+                f'input: "{ex["text"]}"\noutput:'
                 f'{{"sentiment": "{ex["sentiment"]}", "confidence":{ex["confidence"]}}}'
             )
     else:
         # fallback to basic
         pass
+    lines.append("-------YOUR TURN-------")
     lines.append(f'Input: "{text}"')
-    lines.append("Output:")
     return "\n".join(lines)

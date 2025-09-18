@@ -1,16 +1,17 @@
-# tasks/sentiment.py
+# tasks/sentiment_analysis.py
 from __future__ import annotations
 
 import json
 
 import anyio
 import typer
-from data.sentence_w_sentiment import SentimentOut
 from loguru import logger
+from persistence.models.sentence import SentimentOut
 
 from tasks.base import GenericLLMTask
 from tasks.prompts.prompt_sentiment import build_sentiment_prompt
 
+# TODO: remove hardcoded default profile use profile.toml instead
 DEFAULT_PROFILE = "dev"
 
 
@@ -31,17 +32,19 @@ async def run_sentiment(
     *,
     profile: str | None = None,
     temperature: float | None = None,
-    strategy: str = "basic",
+    in_context_learning: str | None = None,
 ) -> SentimentOut:
     profile = profile or DEFAULT_PROFILE
-    task = make_task(
-        profile=profile,
+    llm_task = GenericLLMTask(
+        output_model=SentimentOut,
+        profile=profile if profile else DEFAULT_PROFILE,
         temperature=temperature if temperature is not None else 0.0,
+        sql_persistable=True,
     )
-    prompt = build_sentiment_prompt(text, strategy=strategy)
+    prompt = build_sentiment_prompt(text, in_context_learning)
     logger.debug("Prompt:\n{}", prompt)
     try:
-        result = await task.run(
+        result = await llm_task.run(
             user_role="user",
             prompt=prompt,
             operation=run_sentiment.__name__,
@@ -61,18 +64,24 @@ def run_cmd(
     text: str = typer.Argument(..., help="Text to analyze."),
     profile: str = typer.Option(DEFAULT_PROFILE, "--profile", "-p"),
     temperature: float = typer.Option(0.0, "--temp", "-t"),
-    strategy: str = typer.Option("basic", "--strategy", "-s"),
+    in_context_learning: str = typer.Option("zero-shot", "--in-context-learning", "-c"),
     pretty: bool = typer.Option(False, "--pretty"),
 ):
+    """
+    Run sentiment analysis on TEXT and print the JSON result.
+    python3 tasks/sentiment_analysis.py run-cmd 'I love this!' --pretty
+    """
     if not (0.0 <= temperature <= 1.0):
         raise typer.BadParameter("temperature must be between 0.0 and 1.0")
+    if not text or not text.strip():
+        raise typer.BadParameter("text must be a non-empty string")
 
     async def _main():
         result = await run_sentiment(
             text,
             profile=profile,
             temperature=temperature,
-            strategy=strategy,
+            in_context_learning=in_context_learning,
         )
         return result.model_dump()
 

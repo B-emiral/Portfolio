@@ -8,8 +8,6 @@ from llm.profiles import ProfileStore
 from llm.runner import LLMClient
 from loguru import logger
 from pydantic import BaseModel, ValidationError
-
-# added: tenacity for validation-level retry
 from tenacity import (
     before_sleep_log,
     retry,
@@ -29,7 +27,10 @@ def _extract_json(text: str) -> str:
 
 
 class GenericLLMTask:
-    """Generic task runner: sends a prompt, validates with Pydantic."""
+    """
+    Generic task runner: sends a prompt, validates with Pydantic.
+    Designed to be subclassed for specific task types.
+    """
 
     def __init__(
         self,
@@ -37,10 +38,12 @@ class GenericLLMTask:
         output_model: type[BaseModel],
         profile: str,
         temperature: float = 0.0,
+        sql_persistable: bool = False,
     ) -> None:
         self.output_model = output_model
         self.profile_key = profile
         self.temperature = temperature
+        self.sql_persistable = sql_persistable
 
         # Resolve profile config
         store = ProfileStore()

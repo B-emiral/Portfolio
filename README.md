@@ -1,3 +1,5 @@
+# PORTFOLIO PROJECT
+
 [https://github.com/B-emiral/Portfolio](https://github.com/B-emiral/Portfolio)
 
 # DESIGN
@@ -79,7 +81,7 @@ High-level architecture (Modules & Adapters + Hooks)
     cd infra/langfuse
     cp .env.example .env
     docker compose up   (docker compose down)
-    
+
 
 ### NAMING CONVENTION
 •	Packages: short, all lowercase, avoid underscores.

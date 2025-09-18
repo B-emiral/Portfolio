@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
 
     # Mongo: give sensible defaults so Settings() doesn't crash in dev
+    # TODO: connect DB name acc. to profiles.toml
     mongo_uri: str = Field(alias="MONGO_URI_DEV")
     mongo_db: str = Field(alias="MONGO_DB_LLM_DEV")
     mongo_collection: str = Field(alias="MONGO_COLLECTION_LLM_DEV")
