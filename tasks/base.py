@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from llm.adapters import AnthropicAdapter
 from llm.profiles import ProfileStore
@@ -36,36 +37,39 @@ class GenericLLMTask:
         self,
         *,
         output_model: type[BaseModel],
+        mongo_coll_name: str | None,
+        sql_table_name: str | None,
         profile: str,
-        temperature: float = 0.0,
-        sql_persistable: bool = False,
+        temperature: float,
     ) -> None:
         self.output_model = output_model
+        self.mongo_coll_name = mongo_coll_name
+        self.sql_table_name = sql_table_name
         self.profile_key = profile
         self.temperature = temperature
-        self.sql_persistable = sql_persistable
 
         # Resolve profile config
         store = ProfileStore()
         resolved = store.resolve(self.profile_key)
 
         # Create adapter based on provider
-        provider = resolved["provider"]  # Dict access with []
-        model = resolved["model"]
+        self.llm_provider = resolved["llm_provider"]  # Dict access with []
+        self.llm_model = resolved["llm_model"]
 
-        if provider == "anthropic":
-            adapter = AnthropicAdapter(model=model)
+        if self.llm_provider == "anthropic":
+            adapter = AnthropicAdapter(model=self.llm_model)
         else:
-            raise ValueError(f"Unsupported provider: {provider}")
+            raise ValueError(f"Unsupported provider: {self.llm_provider}")
 
-        # Create client with adapter and hooks
+        # Create client with adapter and hooks acc. profile
         self.client = LLMClient(
             adapter=adapter,
-            before_hooks=resolved["before_hooks"],
-            after_hooks=resolved["after_hooks"],
+            mongo_coll_name=self.mongo_coll_name,
+            sql_table_name=self.sql_table_name,
+            before_hooks=resolved["hookset_before"],
+            after_hooks=resolved["hookset_after"],
+            output_model_name=output_model.__name__,
         )
-        self.provider = provider
-        self.model = model
 
     async def _parse_and_validate(self, text_out: str) -> BaseModel:
         candidate = _extract_json(text_out).strip()
@@ -95,19 +99,32 @@ class GenericLLMTask:
         reraise=True,
     )
     async def run(
-        self, *, user_role: str, prompt: str, operation: str, output_model: str
+        self,
+        *,
+        user_role: str,
+        prompt: str,
+        operation_name: str,
+        **runtime_hook_metadata: Any,
     ) -> BaseModel:
         """Single network call; only parsing/validation is retried."""
         messages = [{"role": user_role, "content": prompt}]
 
+        # Task-level metadata
+        metadata = {
+            # Include task-specific parameters
+            "pyclass_name": self.__class__.__name__.upper(),
+            # Allow runtime metadata to override if needed (e.g. llm_model)
+            **runtime_hook_metadata,
+        }
+
         resp = await self.client.send(
             messages,
-            operation=operation,
             prompt=prompt,
             temperature=self.temperature,
-            provider=self.provider,
-            model=self.model,
-            output_model=output_model,
+            llm_provider=self.llm_provider,
+            llm_model=self.llm_model,
+            operation=operation_name,
+            **metadata,
         )
 
         # Extract text from response

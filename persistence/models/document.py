@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -30,7 +29,7 @@ class Document(SQLModel, table=True):
 
     __tablename__ = "document"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str = Field(index=True, description="The title of the document.")
     context: str = Field(description="The full text content of the document.")
     doc_type: DocumentType = Field(description="The category of the document.")
@@ -49,4 +48,4 @@ class Document(SQLModel, table=True):
     # (e.g., my_document.sentences).
     # 'back_populates' links this to the 'document' attribute in the Sentence model,
     # making the relationship bidirectional and managed by the ORM.
-    sentences: List["Sentence"] = Relationship(back_populates="document")
+    sentences: list[Sentence] = Relationship(back_populates="document")

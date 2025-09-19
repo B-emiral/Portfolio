@@ -31,7 +31,7 @@ High-level architecture (Modules & Adapters + Hooks)
                 ▼
           ┌─────────────────────┐
           │ BEFORE HOOKS        │
-          │ (llm.hooks.*)       │
+          │ (hooks.*)       │
           └─────────┬───────────┘
                     │
                     ▼
@@ -45,7 +45,7 @@ High-level architecture (Modules & Adapters + Hooks)
                 ▼
           ┌─────────────────────┐
           │ AFTER HOOKS         │
-          │ (llm.hooks.*)       │
+          │ (hooks.*)       │
           └─────────┬───────────┘
                     │ (e.g. mongo, langfuse, guard)
                     ▼
@@ -141,16 +141,16 @@ High-level architecture (Modules & Adapters + Hooks)
     - Network resilience: Tenacity retry on transient HTTP/timeouts (exponential backoff with jitter recommended).
 
 - Hooks (observer pattern)
-  - llm.hooks.log: log_request, log_usage
-  - llm.hooks.mongo.mongo_insert:
+  - hooks.log: log_request, log_usage
+  - hooks.mongo.mongo_insert:
     - Builds a record with provider/model/prompt/response and created_at=datetime.now(timezone.utc).
     - insert_call_mongo is sync; offloaded via anyio.to_thread.run_sync to avoid blocking the event loop.
     - Data is validated against schemas.LLMCall before insert. created_at is stored as BSON Date and shows as {"$date": "..."} in JSON viewers.
-  - llm.hooks.langfuse.langfuse_track:
+  - hooks.langfuse.langfuse_track:
     - No metadata blob; writes explicit fields only.
     - Creates a trace with a string trace_id and a generation attached to the same trace_id.
     - Fields: name (operation), model, input (prompt), output (LLM text), tags ["provider:...", "model:..."].
-  - llm.hooks.guard.guard_output:
+  - hooks.guard.guard_output:
     - If output_model (a Pydantic model class) is present, first tries JSON parse + Pydantic validate.
     - Otherwise uses Guardrails (Guard.for_pydantic) to repair.
     - Only overwrites response text when the repaired output is valid JSON (or BaseModel); otherwise leaves original text unchanged.

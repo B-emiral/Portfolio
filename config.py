@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     # TODO: connect DB name acc. to profiles.toml
     mongo_uri: str = Field(alias="MONGO_URI_DEV")
     mongo_db: str = Field(alias="MONGO_DB_LLM_DEV")
-    mongo_collection: str = Field(alias="MONGO_COLLECTION_LLM_DEV")
 
     model_config = SettingsConfigDict(
         env_file=".env",

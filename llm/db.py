@@ -12,7 +12,6 @@ from llm.schemas import LLMCall
 
 client = MongoClient(settings.mongo_uri)
 db = client[settings.mongo_db]
-coll = db[settings.mongo_collection]
 
 
 def _json_default(o: Any) -> Any:
@@ -29,8 +28,9 @@ def _json_default(o: Any) -> Any:
     return str(o)
 
 
-def insert_call_mongo(data: dict):
+def insert_call_mongo(data: dict) -> Any:
     response = data.get("response")
+    coll = db[data.get("mongo_coll_name")]
 
     # Keep both dict and raw string for auditability
     if isinstance(response, dict):

@@ -3,55 +3,55 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import tomllib as toml  # Py3.11+
 
 
 class ProfileStore:
-    """Resolve provider/model and hook callables from profiles.toml env key."""
+    """Resolve llm_provider/llm_model and hook callables from profiles.toml."""
 
     def __init__(self, path: str | Path = "profiles.toml") -> None:
         self.path = Path(path)
         with self.path.open("rb") as f:
             self._cfg = toml.load(f)
 
-    def _import_from_path(self, dotted: str):
+    def _import_from_path(self, dotted: str) -> Callable:
         """Import a function given its dotted path (module.attr)."""
         module_path, attr = dotted.rsplit(".", 1)
         module = importlib.import_module(module_path)
         return getattr(module, attr)
 
-    def _load_hooks(self, names: list[str]) -> list[Any]:
+    def _load_hooks(self, names: list[str]) -> list[Callable]:
         """Import hook callables from dotted paths."""
         return [self._import_from_path(name) for name in (names or [])]
 
-    def resolve(self, env_key: str) -> dict[str, Any]:
-        """Resolve profile and hook information for a given environment key."""
-        env = self._cfg.get(env_key)
-        if env is None:
-            raise KeyError(f"Env key not found: {env_key}")
+    def resolve(self, profile_key: str) -> dict[str, Any]:
+        """Resolve profile and hook information for a given profile key."""
+        profile = self._cfg.get(profile_key)
+        if profile is None:
+            raise KeyError(f"Profile not found: {profile_key}")
 
-        profile_key: str = env["profiles"]
-        hookset_key: str = env.get("hooksets", "")
+        # Extract model configuration
+        llm_provider = profile.get("llm_provider")
+        llm_model = profile.get("llm_model")
 
-        prof = self._cfg["profiles"][profile_key]
-        provider = prof["provider"]
-        model = prof["model"]
+        if not llm_provider or not llm_model:
+            raise ValueError(
+                f"Profile {profile_key} missing required fields: llm_provider, llm_model"
+            )
 
-        before_paths: list[str] = []
-        after_paths: list[str] = []
-        if hookset_key:
-            hookset = self._cfg.get("hooksets", {}).get(hookset_key, {})
-            before_paths = hookset.get("before", []) or []
-            after_paths = hookset.get("after", []) or []
+        # Extract hook paths
+        before_paths = profile.get("hookset_before", []) or []
+        after_paths = profile.get("hookset_after", []) or []
 
-        before_hooks = self._load_hooks(before_paths)
-        after_hooks = self._load_hooks(after_paths)
+        # Load hook functions
+        hookset_before = self._load_hooks(before_paths)
+        hookset_after = self._load_hooks(after_paths)
 
         return {
-            "provider": provider,
-            "model": model,
-            "before_hooks": before_hooks,
-            "after_hooks": after_hooks,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model,
+            "hookset_before": hookset_before,
+            "hookset_after": hookset_after,
         }

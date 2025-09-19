@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "DT-LLM-SDM"
 version = "0.1.0"
-description = "DT reinforced with LLM on SDM"
+description = "A Modern LLM-Operations-Oriented Framework for Software Development Management"
 authors = ["Bilgehan Emiral <bilgehan.emiral@gmail.com>"]
 packages = [
     { include = "ingestion" },

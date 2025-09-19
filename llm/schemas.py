@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field
 class LLMCall(BaseModel):
     operation: str
     output_model: str
-    provider: str
-    model: str
+    llm_provider: str
+    llm_model: str
     prompt: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     response_raw: str

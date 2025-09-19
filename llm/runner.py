@@ -19,12 +19,18 @@ class LLMClient:
     def __init__(
         self,
         adapter: LLMAdapter,
+        mongo_coll_name: str | None = None,
+        sql_table_name: str | None = None,
         before_hooks: list[Hook] | None = None,
         after_hooks: list[Hook] | None = None,
+        output_model_name: str | None = None,
     ) -> None:
         self.adapter = adapter
-        self.before_hooks = before_hooks or []
-        self.after_hooks = after_hooks or []
+        self.mongo_coll_name = mongo_coll_name
+        self.sql_table_name = sql_table_name
+        self.before_hooks = before_hooks
+        self.after_hooks = after_hooks
+        self.output_model_name = output_model_name
 
     async def _run_hook(self, hook: Hook, payload: dict[str, Any]) -> None:
         try:
@@ -43,23 +49,25 @@ class LLMClient:
     async def send(
         self,
         messages: list[dict[str, Any]],
-        operation: str,
-        *,
         prompt: str | None = None,
         temperature: float | None = None,
-        provider: str | None = None,
-        model: str | None = None,
-        output_model: str | None = None,
+        llm_provider: str | None = None,
+        llm_model: str | None = None,
+        operation: str | None = None,
+        **metadata: Any,
     ) -> dict[str, Any]:
         trace_id = str(uuid.uuid4())
         payload: dict[str, Any] = {
             "messages": messages,
             "operation": operation,
             "prompt": prompt,
-            "provider": provider,
-            "model": model,
-            "output_model": output_model,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model,
             "trace_id": trace_id,
+            "mongo_coll_name": self.mongo_coll_name,
+            "sql_table_name": self.sql_table_name,
+            "output_model": self.output_model_name,
+            **metadata,
         }
 
         if self.before_hooks:

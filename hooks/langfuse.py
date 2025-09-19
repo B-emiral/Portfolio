@@ -22,8 +22,8 @@ async def langfuse_track(payload: dict[str, Any]) -> None:
         operation = payload.get("operation")
         input_text = extract_prompt(payload)
         output_text = extract_text(resp) or json.dumps(resp, ensure_ascii=False)
-        model = payload.get("model")
-        provider = payload.get("provider")
+        model = payload.get("llm_model")
+        provider = payload.get("llm_provider")
         trace_id = payload.get("trace_id")
         logger.debug(f"Langfuse trace_id: {trace_id}")
         lf.trace(

@@ -1,40 +1,31 @@
 # profiles.toml
-
+# TODO: fuse under single profile name
 [dev]
-profiles = "anthropic/haiku"
-hooksets = "dev"
+llm_provider = "anthropic"
+llm_model = "claude-3-5-haiku-20241022"
+hookset_before = [
+  "hooks.log_request"
+]
+hookset_after = [
+  "hooks.mongo_insert",
+  "hooks.langfuse_track",
+  "hooks.guard_output"
+]
+
 
 
 [test]
-profiles = "anthropic/haiku"
-hooksets = "test"
-
-
-[hooksets."dev"]
-before = [
-  "llm.hooks.log_request"
+llm_provider = "anthropic"
+llm_model = "claude-3-5-sonnet-20241022"
+hookset_before = [
+  "hooks.log_request"
 ]
-after = [
-  "llm.hooks.mongo_insert",
-  "llm.hooks.langfuse_track",
-  "llm.hooks.guard_output"
-]
-
-[hooksets."test"]
-before = [
-  "llm.hooks.log_request"
-]
-after = [
-  "llm.hooks.langfuse_track",
-  "llm.hooks.guard_output",
+hookset_after = [
+  "hooks.langfuse_track",
+  "hooks.guard_output",
 ]
 
 
-[profiles."anthropic/haiku"]
-provider = "anthropic"
-model = "claude-3-5-haiku-20241022"
 
 
-[profiles."anthropic/sonnet"]
-provider = "anthropic"
-model = "claude-3-5-sonnet-20241022"
+

@@ -11,48 +11,37 @@ from persistence.models.sentence import SentimentOut
 from tasks.base import GenericLLMTask
 from tasks.prompts.prompt_sentiment import build_sentiment_prompt
 
-# TODO: remove hardcoded default profile use profile.toml instead
-DEFAULT_PROFILE = "dev"
 
-
-def make_task(
+async def run_sentiment(
+    context: str,
     *,
-    profile: str = DEFAULT_PROFILE,
-    temperature: float = 0.0,
-) -> GenericLLMTask:
-    return GenericLLMTask(
+    profile: str | None,
+    temperature: float | None,
+    in_context_learning: str | None,
+) -> SentimentOut:
+    profile = profile
+
+    llm_task = GenericLLMTask(
         output_model=SentimentOut,
+        mongo_coll_name="llm_calls_generic",
+        sql_table_name="sentiment_generic",
         profile=profile,
         temperature=temperature,
     )
 
-
-async def run_sentiment(
-    text: str,
-    *,
-    profile: str | None = None,
-    temperature: float | None = None,
-    in_context_learning: str | None = None,
-) -> SentimentOut:
-    profile = profile or DEFAULT_PROFILE
-    llm_task = GenericLLMTask(
-        output_model=SentimentOut,
-        profile=profile if profile else DEFAULT_PROFILE,
-        temperature=temperature if temperature is not None else 0.0,
-        sql_persistable=True,
-    )
-    prompt = build_sentiment_prompt(text, in_context_learning)
+    prompt = build_sentiment_prompt(context, in_context_learning)
     logger.debug("Prompt:\n{}", prompt)
     try:
         result = await llm_task.run(
             user_role="user",
             prompt=prompt,
-            operation=run_sentiment.__name__,
-            output_model=SentimentOut.__name__,
+            operation_name=run_sentiment.__name__,
         )
         return result
     except Exception as e:
-        logger.error("run_sentiment failed after retries for input={!r}: {}", text, e)
+        logger.error(
+            "run_sentiment failed after retries for input={!r}: {}", context, e
+        )
         return SentimentOut(sentiment="error", confidence=0.0)
 
 
@@ -62,7 +51,7 @@ app = typer.Typer(help="Run sentiment analysis from the command line.")
 @app.command()
 def run_cmd(
     text: str = typer.Argument(..., help="Text to analyze."),
-    profile: str = typer.Option(DEFAULT_PROFILE, "--profile", "-p"),
+    profile: str = typer.Option("dev", "--profile", "-p"),
     temperature: float = typer.Option(0.0, "--temp", "-t"),
     in_context_learning: str = typer.Option("zero-shot", "--in-context-learning", "-c"),
     pretty: bool = typer.Option(False, "--pretty"),
