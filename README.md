@@ -83,6 +83,11 @@ High-level architecture (Modules & Adapters + Hooks)
     docker compose up   (docker compose down)
 ##### testing
     poetry run pytest -v tests/test_persistence/test_add_document.py
+##### cli dev
+    python3 persistence/scripts/add_document.py --json-path /<path-to-json>/<filename>.json
+
+
+
 
 ### NAMING CONVENTION
 •	Packages: short, all lowercase, avoid underscores.
