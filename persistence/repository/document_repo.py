@@ -1,3 +1,4 @@
+# persistence/models/document_repo.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -129,3 +130,11 @@ class DocumentRepository:
         except Exception:
             logger.exception("create_with_sentences failed; rolling back")
             raise
+
+    async def find_by_hash(self, content_hash: str) -> Document | None:
+        """Find document by content hash."""
+        from sqlmodel import select
+
+        stmt = select(Document).where(Document.content_hash == content_hash)
+        result = await self.session.exec(stmt)
+        return result.scalar_one_or_none()

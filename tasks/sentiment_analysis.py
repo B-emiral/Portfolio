@@ -13,7 +13,7 @@ from tasks.prompts.prompt_sentiment import build_sentiment_prompt
 
 
 async def run_sentiment(
-    context: str,
+    text: str,
     *,
     profile: str | None,
     temperature: float | None,
@@ -29,7 +29,7 @@ async def run_sentiment(
         temperature=temperature,
     )
 
-    prompt = build_sentiment_prompt(context, in_context_learning)
+    prompt = build_sentiment_prompt(text, in_context_learning)
     logger.debug("Prompt:\n{}", prompt)
     try:
         result = await llm_task.run(
@@ -39,9 +39,7 @@ async def run_sentiment(
         )
         return result
     except Exception as e:
-        logger.error(
-            "run_sentiment failed after retries for input={!r}: {}", context, e
-        )
+        logger.error("run_sentiment failed after retries for input={!r}: {}", text, e)
         return SentimentOut(sentiment="error", confidence=0.0)
 
 

@@ -5,7 +5,8 @@ from typing import Iterable
 
 from persistence.models.sentence import Sentence, SentimentOut
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Select, select
+from sqlalchemy.sql.selectable import Select
+from sqlmodel import select
 
 
 class SentenceRepository:

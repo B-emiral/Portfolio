@@ -81,7 +81,8 @@ High-level architecture (Modules & Adapters + Hooks)
     cd infra/langfuse
     cp .env.example .env
     docker compose up   (docker compose down)
-
+##### testing
+    poetry run pytest -v tests/test_persistence/test_add_document.py
 
 ### NAMING CONVENTION
 •	Packages: short, all lowercase, avoid underscores.

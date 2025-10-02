@@ -6,10 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Required for Anthropic
+    # Anthropic
     anthropic_api_key: str = Field(alias="ANTHROPIC_API_KEY")
 
-    # Langfuse: make optional; hooks will no-op if missing
+    # Langfuse
     langfuse_host: str = Field(alias="LANGFUSE_HOST", default="http://localhost:3000")
     langfuse_public_key: Optional[str] = Field(
         alias="LANGFUSE_PUBLIC_KEY", default=None
@@ -18,10 +18,14 @@ class Settings(BaseSettings):
         alias="LANGFUSE_SECRET_KEY", default=None
     )
 
-    # Mongo: give sensible defaults so Settings() doesn't crash in dev
-    # TODO: connect DB name acc. to profiles.toml
+    # NoSQL - MongoDB
     mongo_uri: str = Field(alias="MONGO_URI_DEV")
     mongo_db: str = Field(alias="MONGO_DB_LLM_DEV")
+
+    # SQL - SQLite (for dev)
+    database_url: str = Field(
+        alias="DATABASE_URL", default="sqlite+aiosqlite:///./app.db"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

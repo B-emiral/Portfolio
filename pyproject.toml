@@ -30,11 +30,15 @@ pymongo = "^4.14.1"
 guardrails-ai = {version = "0.6.6", extras = ["pydantic"]}
 dspy = "^3.0.3"
 sqlmodel = "^0.0.24"
+aiosqlite = "^0.21.0"
+greenlet = "^3.2.4"
+click = "^8.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 ruff = "^0.5.0"
 mypy = "^1.8"
+pytest-asyncio = "^1.2.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -5,10 +5,12 @@ from .guard import guard_output
 from .langfuse import langfuse_track
 from .log import log_request
 from .mongo import mongo_insert
+from .persist import persist_sql
 
 __all__ = [
     "log_request",
     "mongo_insert",
     "langfuse_track",
     "guard_output",
+    "persist_sql",
 ]

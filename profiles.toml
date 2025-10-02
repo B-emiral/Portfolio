@@ -9,7 +9,8 @@ hookset_before = [
 hookset_after = [
   "hooks.mongo_insert",
   "hooks.langfuse_track",
-  "hooks.guard_output"
+  "hooks.guard_output",
+  "hooks.persist_sql",
 ]
 
 

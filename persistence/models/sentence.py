@@ -1,13 +1,20 @@
+# persistence/models/sentence.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Float, Index, String
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import relationship
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
+
+if TYPE_CHECKING:
+    from persistence.models.document import Document
+    from sqlalchemy.orm import Mapped
 
 
 class SentimentLabel(str, Enum):
@@ -35,7 +42,7 @@ class Sentence(SQLModel, table=True):
         sa_column=Column(
             SAEnum(SentimentLabel, name="sentiment_label_enum", native_enum=False),
             nullable=True,
-            index=True,  # single-column index defined here
+            index=True,
         ),
     )
     sentiment_score: float | None = SQLField(
@@ -55,14 +62,10 @@ class Sentence(SQLModel, table=True):
     )
 
     def apply_sentiment(self, out: SentimentOut, now: datetime | None = None) -> bool:
-        """
-        Apply SentimentOut to this Sentence in-memory.
-        Returns True if a change was made (so repo can commit/refresh).
-        """
+        """Apply SentimentOut to this Sentence in-memory."""
         now = now or datetime.now(timezone.utc)
         changed = False
 
-        # Normalize label to Enum safely
         label = (
             out.sentiment
             if isinstance(out.sentiment, SentimentLabel)
@@ -85,3 +88,10 @@ class Sentence(SQLModel, table=True):
             self.updated_at = now
 
         return changed
+
+
+# Add relationship AFTER class definition to avoid SQLModel parsing it
+Sentence.document = relationship("Document", back_populates="sentences")
+
+if TYPE_CHECKING:
+    Sentence.document: Mapped[Document | None]  # pyright: ignore[reportInvalidTypeForm]

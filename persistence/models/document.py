@@ -1,17 +1,24 @@
-# ./persistence/models/document.py
+"""Document model for storing documents and their metadata."""
 
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum as PyEnum
+from datetime import UTC, datetime
+from enum import Enum
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel
+from pydantic import ConfigDict
+from sqlalchemy import Column
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import relationship
+from sqlmodel import Field, SQLModel
 
-from .sentence import Sentence
+if TYPE_CHECKING:
+    from persistence.models.sentence import Sentence
+    from sqlalchemy.orm import Mapped
 
 
-class DocumentType(str, PyEnum):
-    """Enum for document types to ensure data consistency."""
+class DocumentType(str, Enum):
+    """Document type enumeration."""
 
     REPORT = "report"
     NEWS_ARTICLE = "news_article"
@@ -19,33 +26,38 @@ class DocumentType(str, PyEnum):
     OTHER = "other"
 
 
+def _utcnow() -> datetime:
+    """Get current UTC timestamp."""
+    return datetime.now(UTC)
+
+
 class Document(SQLModel, table=True):
-    """
+    """Document model for storing document content and metadata."""
 
-    Represents a source document in the database.
-    This is the 'one' side of a one-to-many relationship with Sentence.
-    Each Document can have multiple associated Sentences.
-    """
-
-    __tablename__ = "document"
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: int | None = Field(default=None, primary_key=True)
-    title: str = Field(index=True, description="The title of the document.")
-    context: str = Field(description="The full text content of the document.")
-    doc_type: DocumentType = Field(description="The category of the document.")
-    document_date: datetime = Field(
-        index=True, description="The original publication date of the document."
-    )
-    added_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        nullable=False,
-        description="Timestamp when the document was added to the database.",
+    title: str
+    text: str
+
+    doc_type: DocumentType = Field(
+        sa_column=Column(
+            SAEnum(DocumentType, name="document_type"),
+            nullable=False,
+            default=DocumentType.OTHER,
+        )
     )
 
-    # --- Relationship Attribute ---
-    # This attribute defines the one-to-many relationship.
-    # It allows you to access all related sentences from a document instance
-    # (e.g., my_document.sentences).
-    # 'back_populates' links this to the 'document' attribute in the Sentence model,
-    # making the relationship bidirectional and managed by the ORM.
-    sentences: list[Sentence] = Relationship(back_populates="document")
+    content_hash: str | None = Field(default=None, index=True, unique=True)
+    added_at: datetime = Field(default_factory=_utcnow)
+    document_date: datetime | None = Field(default=None)
+
+
+# Import Sentence to register it in SQLAlchemy registry before adding relationship
+from persistence.models.sentence import Sentence  # noqa: E402
+
+# Add relationship after both classes are defined
+Document.sentences = relationship("Sentence", back_populates="document")
+
+if TYPE_CHECKING:
+    Document.sentences: Mapped[list[Sentence]]  # pyright: ignore[reportInvalidTypeForm]
