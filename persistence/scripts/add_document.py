@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import click
-from persistence.exceptions import DuplicateDocumentError
 from persistence.models.document import Document, DocumentType
-from persistence.session import get_session
+from persistence.session import get_async_session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,14 +40,56 @@ def add_document_cli(json_path: str, log_level: str, skip_duplicates: bool) -> N
     """CLI wrapper to add a document into the database."""
     logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
     try:
-        document = asyncio.run(
+        document, is_duplicate = asyncio.run(
             add_document_from_json(json_path, skip_duplicates=skip_duplicates)
         )
-        click.secho(
-            f"✓ Document added: ID={document.id}, Title='{document.title}'", fg="green"
-        )
+
+        if is_duplicate:
+            if skip_duplicates:
+                click.secho(
+                    (
+                        f"⚠️  Document already exists: ID={document.id}, "
+                        f"Title='{document.title}' (skipped)"
+                    ),
+                    fg="yellow",
+                )
+            else:
+                click.secho(
+                    (
+                        f"❌ Document already exists: ID={document.id}, "
+                        f"Title='{document.title}'"
+                    ),
+                    fg="red",
+                    err=True,
+                )
+                raise click.Abort()
+        else:
+            click.secho(
+                (
+                    f"✅ Document added successfully: ID={document.id}, "
+                    f"Title='{document.title}'"
+                ),
+                fg="green",
+            )
+
+    except IntegrityError as e:
+        if "UNIQUE constraint failed: document.content_hash" in str(e):
+            click.secho(
+                "❌ Document with identical content already exists in database",
+                fg="red",
+                err=True,
+            )
+            if not skip_duplicates:
+                click.secho(
+                    "💡 Use --skip-duplicates flag to ignore duplicates", fg="blue"
+                )
+        else:
+            click.secho(f"❌ Database constraint error: {e}", fg="red", err=True)
+        logger.debug("Database integrity error", exc_info=True)
+        raise click.Abort()
+
     except Exception as e:
-        click.secho(f"✗ Error: {e}", fg="red", err=True)
+        click.secho(f"❌ Unexpected error: {e}", fg="red", err=True)
         logger.exception("Document import failed")
         raise click.Abort()
 
@@ -57,72 +98,68 @@ async def add_document_from_json(
     json_path: str,
     skip_duplicates: bool,
     session: AsyncSession | None = None,
-) -> Document:
-    """
-    Add a document from JSON file to the database.
-    If no session is provided, creates one internally.
-    """
-    json_path = Path(json_path)
+) -> tuple[Document, bool]:
+    """Add a document from JSON file to database."""
+    json_path_obj = Path(json_path)
     logger.info(f"Loading document from {json_path}")
 
-    doc_data = _parse_document_json(json_path)
+    doc_data = _parse_document_json(json_path_obj)
     _validate_document_data(doc_data)
     doc_fields = _extract_document_fields(doc_data)
 
-    if session is not None:
+    if session:
         return await _add_document_logic(doc_fields, skip_duplicates, session)
-
-    async with _get_db_session() as new_session:
-        return await _add_document_logic(doc_fields, skip_duplicates, new_session)
+    else:
+        try:
+            async with get_async_session() as new_session:
+                return await _add_document_logic(
+                    doc_fields, skip_duplicates, new_session
+                )
+        except IntegrityError as e:
+            if "UNIQUE constraint failed: document.content_hash" in str(e):
+                if skip_duplicates:
+                    content_hash = hashlib.md5(
+                        doc_fields["content"].encode()
+                    ).hexdigest()
+                    async with get_async_session() as new_session:
+                        result = await new_session.execute(
+                            select(Document).where(
+                                Document.content_hash == content_hash
+                            )
+                        )
+                        existing = result.scalar_one_or_none()
+                        return existing, True
+                else:
+                    raise
+            else:
+                raise
 
 
 async def _add_document_logic(
     doc_fields: dict[str, Any],
     skip_duplicates: bool,
     session: AsyncSession,
-) -> Document:
+) -> tuple[Document, bool]:
     """Core logic to insert or skip a document in the database."""
-    content_hash = hashlib.md5(doc_fields["text"].encode()).hexdigest()
+    content_hash = hashlib.md5(doc_fields["content"].encode()).hexdigest()
+    doc_fields["content_hash"] = content_hash
 
-    try:
+    if skip_duplicates:
         result = await session.execute(
             select(Document).where(Document.content_hash == content_hash)
         )
-        existing_doc = result.scalar_one_or_none()
+        existing = result.scalar_one_or_none()
+        if existing:
+            logger.info(f"Document already exists: ID={existing.id}")
+            return existing, True
 
-        if existing_doc:
-            logger.warning(
-                f"Document hash: {content_hash} already exists (ID: {existing_doc.id})"
-            )
-            if skip_duplicates:
-                return existing_doc
-            raise DuplicateDocumentError(content_hash, existing_doc.id)
+    document = Document(**doc_fields)
+    session.add(document)
 
-        document = Document(
-            title=doc_fields["title"],
-            text=doc_fields["text"],
-            doc_type=doc_fields["doc_type"],
-            content_hash=content_hash,
-            document_date=doc_fields["document_date"],
-        )
+    await session.flush()
+    await session.refresh(document)
 
-        session.add(document)
-        await session.commit()
-        await session.refresh(document)
-        logger.info(f"Successfully added document (ID: {document.id})")
-        return document
-
-    except IntegrityError as e:
-        await session.rollback()
-        if "UNIQUE constraint failed: document.content_hash" in str(e):
-            result = await session.execute(
-                select(Document).where(Document.content_hash == content_hash)
-            )
-            existing_doc = result.scalar_one_or_none()
-            raise DuplicateDocumentError(
-                content_hash, existing_doc.id if existing_doc else None
-            )
-        raise
+    return document, False
 
 
 def _parse_document_json(json_path: Path) -> dict[str, Any]:
@@ -140,7 +177,7 @@ def _parse_document_json(json_path: Path) -> dict[str, Any]:
 
 def _validate_document_data(doc_data: dict[str, Any]) -> None:
     """Ensure required fields are present in JSON."""
-    required_fields = ["title", "text"]
+    required_fields = ["title", "content"]
     missing_fields = [field for field in required_fields if field not in doc_data]
 
     if missing_fields:
@@ -153,7 +190,7 @@ def _extract_document_fields(doc_data: dict[str, Any]) -> dict[str, Any]:
     """Normalize JSON fields into model-compatible values."""
     result = {
         "title": doc_data["title"],
-        "text": doc_data["text"],
+        "content": doc_data["content"],
     }
 
     if doc_type_val := doc_data.get("doc_type"):
@@ -188,27 +225,6 @@ def _parse_document_date(date_str: str) -> datetime:
     error_msg = f"Invalid date format: '{date_str}'. Expected format: YYYY-MM-DD"
     logger.error(error_msg)
     raise click.BadParameter(error_msg)
-
-
-class _get_db_session:
-    """Context manager for database session with proper error handling."""
-
-    def __init__(self):
-        self.session = None
-
-    async def __aenter__(self) -> AsyncSession:
-        session_gen = get_session()
-        self.session = await session_gen.__anext__()
-        return self.session
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            logger.error(f"Database error: {exc_val}")
-            await self.session.rollback()
-            if not isinstance(exc_val, click.ClickException):
-                raise click.ClickException(str(exc_val))
-            return False
-        return True
 
 
 if __name__ == "__main__":

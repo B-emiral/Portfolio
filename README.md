@@ -84,7 +84,10 @@ High-level architecture (Modules & Adapters + Hooks)
 ##### testing
     poetry run pytest -v tests/test_persistence/test_add_document.py
 ##### cli dev
-    python3 persistence/scripts/add_document.py --json-path /<path-to-json>/<filename>.json
+    % python3 persistence/scripts/add_document.py --json-path /<path-to-json>/<filename>.json
+    % python3 tasks/sentiment_analysis.py 'I absolutely loved this movie, it was fantastic!'
+    % python3 tasks/sentiment_analysis.py 'The restaurant is located on Main Street.'
+    % python3 tasks/sentiment_analysis.py 'The customer service was terrible, I’ll never come back.'
 
 
 

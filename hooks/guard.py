@@ -33,7 +33,7 @@ async def guard_output(payload: dict[str, Any]) -> None:
     if not raw_text:
         return
 
-    output_model: type[BaseModel] | None = payload.get("output_model")
+    output_model: type[BaseModel] | None = payload.get("output_model_class")
 
     if (
         output_model

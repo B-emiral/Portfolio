@@ -13,7 +13,6 @@ from sqlalchemy.orm import relationship
 from sqlmodel import Field, SQLModel
 
 if TYPE_CHECKING:
-    from persistence.models.sentence import Sentence
     from sqlalchemy.orm import Mapped
 
 
@@ -23,6 +22,7 @@ class DocumentType(str, Enum):
     REPORT = "report"
     NEWS_ARTICLE = "news_article"
     RESEARCH_PAPER = "research_paper"
+    SENTENCE = "sentence"
     OTHER = "other"
 
 
@@ -38,7 +38,7 @@ class Document(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     title: str
-    text: str
+    content: str
 
     doc_type: DocumentType = Field(
         sa_column=Column(
@@ -54,10 +54,10 @@ class Document(SQLModel, table=True):
 
 
 # Import Sentence to register it in SQLAlchemy registry before adding relationship
-from persistence.models.sentence import Sentence  # noqa: E402
+from persistence.models.sentence import SentimentAnalysisEntity  # noqa: E402
 
 # Add relationship after both classes are defined
-Document.sentences = relationship("Sentence", back_populates="document")
+Document.sentences = relationship("SentimentAnalysisEntity", back_populates="document")
 
 if TYPE_CHECKING:
-    Document.sentences: Mapped[list[Sentence]]  # pyright: ignore[reportInvalidTypeForm]
+    Document.sentences: Mapped[list[SentimentAnalysisEntity]]  # pyright: ignore[reportInvalidTypeForm]

@@ -1,10 +1,9 @@
-# llm/client.py
+# ./llm/client.py
 from __future__ import annotations
 
 import inspect
 from typing import Any, Awaitable, Callable, Dict
 
-import anyio
 from loguru import logger
 
 from .adapters import LLMAdapter
@@ -31,24 +30,34 @@ class LLMClient:
                 await hook(payload)
             else:
                 # if someone provided a sync function
+                import anyio
+
                 await anyio.to_thread.run_sync(hook, payload)
         except Exception as e:
-            logger.error("Hook failure: {}", e)
+            logger.error(
+                f"Hook failure in "
+                f"{hook.__name__ if hasattr(hook, '__name__') else str(hook)}: {e}"
+            )
+            logger.exception("Full hook error traceback:")
+            # Re-raise to prevent silent failures
+            raise
 
     async def _fire(self, hooks: list[Hook], payload: dict[str, Any]) -> None:
-        async with anyio.create_task_group() as tg:
-            for h in hooks:
-                tg.start_soon(self._run_hook, h, payload)
+        # Run hooks sequentially instead of parallel to avoid race conditions
+        for hook in hooks:
+            await self._run_hook(hook, payload)
 
     async def send(
         self,
         messages: list[dict[str, Any]],
         prompt: str | None = None,
         temperature: float | None = None,
+        **metadata: Any,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "messages": messages,
             "prompt": prompt or "",
+            **metadata,
         }
 
         if self.before_hooks:

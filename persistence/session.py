@@ -1,6 +1,7 @@
 # ./persistence/session.py
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from config import settings
@@ -9,6 +10,28 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # Global session factory
 _SessionLocal: async_sessionmaker[AsyncSession] | None = None
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncIterator[AsyncSession]:
+    """Get async database session for use in hooks and other async contexts."""
+    global _SessionLocal
+
+    if _SessionLocal is None:
+        init_engine()
+
+    if _SessionLocal is None:
+        raise RuntimeError("Database session could not be initialized")
+
+    async with _SessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 def init_engine(database_url: str | None = None) -> None:

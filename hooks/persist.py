@@ -1,113 +1,133 @@
 # ./hooks/persist.py
+"""Generic persistence hook that works with any persistable entity."""
+
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Any
 
 from loguru import logger
-from persistence.models.sentence import SentimentOut
-from persistence.repository.document_repo import DocumentRepository
-from persistence.repository.sentence_repo import SentenceRepository
-from persistence.session import get_session
-
-from hooks.utils import extract_text
+from persistence.session import get_async_session
 
 
 async def persist_sql(payload: dict[str, Any]) -> None:
     """
-    SQL persistence hook that saves LLM analysis results.
-    Uses existing domain models and repository methods.
+    Generic persistence hook.
+
+    Automatically detects and persists entities marked as persistable.
     """
+    db_entity_model = payload.get("db_entity_model")
+
+    if not db_entity_model:
+        logger.debug("persist_sql: no db_entity_model in payload")
+        return
+
+    if not getattr(db_entity_model, "persistable", False):
+        logger.debug(f"persist_sql: {db_entity_model.__name__} is not persistable")
+        return
+
+    text = payload.get("analyzed_text")
+    response = payload.get("response")
+    llm_output_model_class = payload.get("llm_output_model")
+
+    raw_response = response.get("content", [{}])[0].get("text", "{}")
+
+    if not all([text, response, llm_output_model_class]):
+        logger.debug("persist_sql: missing required fields")
+        return
+
     try:
-        # Extract metadata from payload
-        doc_id = payload.get("document_id")
-        text = payload.get("text", "").strip()
-        sql_table_name = payload.get("sql_table_name")
+        import hashlib
+        import json
 
-        # Skip if no table specified or no text/document
-        if not sql_table_name:
-            logger.debug("persist_sql: skipping, no SQL table name specified")
-            return
+        from sqlalchemy import select
 
-        if not text and not doc_id:
-            logger.debug("persist_sql: skipping, no text or document_id provided")
-            return
+        text_hash = hashlib.md5(text.encode()).hexdigest()
 
-        # Get response text
-        response = payload.get("response", {})
-        response_text = extract_text(response)
-        if not response_text:
-            logger.warning("persist_sql: unable to extract response text")
-            return
+        response_data = json.loads(raw_response)
+        llm_output_instance = llm_output_model_class(**response_data)
 
-        # Parse sentiment from response
-        try:
-            # Extract JSON data from response
-            start = response_text.find("{")
-            end = response_text.rfind("}")
+        logger.debug(f"persist_sql: validated LLM output: {llm_output_instance}")
 
-            if start != -1 and end != -1 and end > start:
-                json_str = response_text[start : end + 1]
-            else:
-                json_str = response_text
+        doc_id = await _get_or_create_document(text, text_hash)
 
-            # Parse with the domain model's SentimentOut
-            sentiment_data = json.loads(json_str)
-            sentiment_out = SentimentOut(**sentiment_data)
+        async with get_async_session() as session:
+            repository_class = _get_repository_for_entity(db_entity_model)
+            repo = repository_class(session)
 
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.warning("persist_sql: failed to parse response: {}", e)
-            return
+            entity = db_entity_model.from_llm_output(
+                llm_output=llm_output_instance,
+                text=text,
+                text_hash=text_hash,
+                doc_id=doc_id,
+            )
 
-        # Use database session and repositories
-        async for session in get_session():
-            try:
-                # Get the repositories
-                doc_repo = DocumentRepository(session)
-                sent_repo = SentenceRepository(session)
-
-                # Resolve document - either use the provided ID or find by hash
-                if doc_id:
-                    document = await doc_repo.get(doc_id)
-                    if not document:
-                        logger.error("persist_sql: document ID {} not found", doc_id)
-                        return
-                else:
-                    # Use hash lookup that's already in the domain model
-                    content_hash = hashlib.md5(text.encode()).hexdigest()
-                    document = await doc_repo.find_by_hash(content_hash)
-
-                    if not document:
-                        logger.error("persist_sql: no matching document found for text")
-                        return
-
-                    doc_id = document.id
-
-                # Use SentenceRepository's upsert method to create/update sentence
-                # This leverages the Sentence.apply_sentiment method
-                sentence, is_new = await sent_repo.upsert_by_doc_text(
-                    doc_id=doc_id,
-                    text=text,
-                    sentiment_out=sentiment_out,  # Uses the domain model
+            result = await session.execute(
+                select(db_entity_model).where(
+                    db_entity_model.text_hash == text_hash,
+                    db_entity_model.doc_id == doc_id,
                 )
+            )
+            existing = result.scalar_one_or_none()
 
-                action = "created" if is_new else "updated"
-                logger.info(
-                    "persist_sql: {} sentiment record, doc_id={}, sentence_id={}, sentiment={}",
-                    action,
-                    doc_id,
-                    sentence.id,
-                    sentence.sentiment_label,
-                )
+            if existing:
+                logger.debug("persist_sql: entity already exists, skipping")
+                return
 
-                # Commit the changes
-                await session.commit()
-
-            except Exception as e:
-                logger.error("persist_sql db error: {}", e)
-                await session.rollback()
+            created_entity = await repo.create(entity)
+            logger.debug(
+                f"persist_sql: created new entity ID={created_entity.id or 'pending'}"
+            )
 
     except Exception as e:
-        # Non-fatal
-        logger.error("persist_sql hook failed: {}", e)
+        logger.error(f"persist_sql error: {e}")
+        logger.exception("Full persist_sql traceback:")
+        raise
+
+
+async def _get_or_create_document(text: str, text_hash: str) -> int:
+    """Get or create document for text."""
+    from persistence.models.document import Document, DocumentType
+    from persistence.session import get_async_session
+    from sqlalchemy import select
+
+    async with get_async_session() as session:
+        result = await session.execute(
+            select(Document).where(Document.content_hash == text_hash)
+        )
+        doc = result.scalar_one_or_none()
+
+        if not doc:
+            doc = Document(
+                title="Auto-generated from task",
+                content=text,
+                content_hash=text_hash,
+                doc_type=DocumentType.SENTENCE,
+            )
+            session.add(doc)
+            await session.flush()
+            logger.debug(f"Created document ID={doc.id}")
+
+        return doc.id
+
+
+def _get_repository_for_entity(entity_model: type) -> type:
+    """Get repository class for entity model."""
+    from persistence.repository.sentiment_analysis_repo import (
+        SentimentAnalysisRepository,
+    )
+
+    # Registry pattern
+    REPOSITORY_REGISTRY = {
+        "SentimentAnalysisEntity": SentimentAnalysisRepository,
+        # Add more mappings as needed
+    }
+
+    repo_class = REPOSITORY_REGISTRY.get(entity_model.__name__)
+
+    if not repo_class:
+        raise ValueError(
+            f"No repository registered for {entity_model.__name__}. "
+            f"Available: {list(REPOSITORY_REGISTRY.keys())}"
+        )
+
+    return repo_class
