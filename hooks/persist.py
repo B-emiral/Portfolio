@@ -36,12 +36,12 @@ async def persist_sql(payload: dict[str, Any]) -> None:
         return
 
     try:
-        import hashlib
         import json
 
         from sqlalchemy import select
+        from tasks.base import GenericLLMTask
 
-        text_hash = hashlib.md5(text.encode()).hexdigest()
+        text_hash = GenericLLMTask._compute_hash(text)
 
         response_data = json.loads(raw_response)
         llm_output_instance = llm_output_model_class(**response_data)

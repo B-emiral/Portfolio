@@ -1,3 +1,4 @@
+# ./persistence/repository/sentiment_analysis_repo.py
 """Repository for sentiment analysis entities."""
 
 from __future__ import annotations
@@ -14,14 +15,11 @@ class SentimentAnalysisRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_text_hash(
-        self, text_hash: str, doc_id: int
-    ) -> SentimentAnalysisEntity | None:
+    async def get_by_text_hash(self, text_hash: str) -> SentimentAnalysisEntity | None:
         """Get sentiment analysis entity by text hash and doc_id."""
         result = await self.session.execute(
             select(SentimentAnalysisEntity).where(
-                SentimentAnalysisEntity.text_hash == text_hash,
-                SentimentAnalysisEntity.doc_id == doc_id,
+                SentimentAnalysisEntity.text_hash == text_hash
             )
         )
         return result.scalar_one_or_none()

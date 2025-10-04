@@ -1,14 +1,15 @@
-# persistence/models/document_repo.py
+# ./persistence/repository/document_repo.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Iterable
 
 from loguru import logger
-from persistence.models.document import Document
-from persistence.models.sentence import Sentence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
+from persistence.models.document import Document
+from persistence.models.sentence import Sentence
 
 
 class DocumentRepository:

@@ -1,5 +1,5 @@
-# ./scripts/create_tables.py
-from __future__ import annotations
+# ./persistence/scripts/create_tables.py
+"""Script to create all database tables."""
 
 import asyncio
 
@@ -14,9 +14,8 @@ async def create_tables() -> None:
     """Create all database tables."""
     print(f"Creating tables in {settings.database_url}")
 
-    engine = create_async_engine(settings.database_url)
+    engine = create_async_engine(settings.database_url, echo=True)
     async with engine.begin() as conn:
-        # Create all tables
         await conn.run_sync(SQLModel.metadata.create_all)
 
     print("Database tables created successfully.")

@@ -1,24 +1,21 @@
-"""Document model for storing documents and their metadata."""
-
+# ./persistence/models/document.py
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from pydantic import ConfigDict
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import relationship
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field as SQLField
+from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Mapped
+    from persistence.models.sentence import SentimentAnalysisEntity  # noqa: F401
 
 
 class DocumentType(str, Enum):
-    """Document type enumeration."""
-
     REPORT = "report"
     NEWS_ARTICLE = "news_article"
     RESEARCH_PAPER = "research_paper"
@@ -27,37 +24,37 @@ class DocumentType(str, Enum):
 
 
 def _utcnow() -> datetime:
-    """Get current UTC timestamp."""
     return datetime.now(UTC)
 
 
 class Document(SQLModel, table=True):
-    """Document model for storing document content and metadata."""
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: int | None = SQLField(default=None, primary_key=True)
     title: str
     content: str
-
-    doc_type: DocumentType = Field(
+    doc_type: DocumentType = SQLField(
         sa_column=Column(
             SAEnum(DocumentType, name="document_type"),
             nullable=False,
             default=DocumentType.OTHER,
         )
     )
+    content_hash: str | None = SQLField(
+        default=None,
+        sa_column=Column(String, unique=True, index=True, nullable=True),
+    )
+    document_date: datetime | None = SQLField(default=None)
 
-    content_hash: str | None = Field(default=None, index=True, unique=True)
-    added_at: datetime = Field(default_factory=_utcnow)
-    document_date: datetime | None = Field(default=None)
-
-
-# Import Sentence to register it in SQLAlchemy registry before adding relationship
-from persistence.models.sentence import SentimentAnalysisEntity  # noqa: E402
-
-# Add relationship after both classes are defined
-Document.sentences = relationship("SentimentAnalysisEntity", back_populates="document")
-
-if TYPE_CHECKING:
-    Document.sentences: Mapped[list[SentimentAnalysisEntity]]  # pyright: ignore[reportInvalidTypeForm]
+    created_at: datetime = SQLField(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: datetime = SQLField(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+    processed_at: datetime = SQLField(
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        default=None,
+    )
