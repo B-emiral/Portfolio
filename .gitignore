@@ -3,3 +3,4 @@ __pycache__/
 ignore/
 *.db
 *.drawio
+.tmp_dagster_home_*

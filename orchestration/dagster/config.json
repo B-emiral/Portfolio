@@ -1,0 +1,15 @@
+{
+  "watch": {
+    "dirs": ["data/dev/documents"],
+    "glob": "*.json",
+    "interval": 60
+  },
+  "batches": {
+    "docs": 10,
+    "sents": 20
+  },
+  "schedules": {
+    "check_documents_interval": "*/5 * * * *",
+    "check_sentences_interval": "*/10 * * * *"
+  }
+}

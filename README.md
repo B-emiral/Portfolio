@@ -88,7 +88,8 @@ High-level architecture (Modules & Adapters + Hooks)
     % python3 tasks/sentiment_analysis.py 'I absolutely loved this movie, it was fantastic!'
     % python3 tasks/sentiment_analysis.py 'The restaurant is located on Main Street.'
     % python3 tasks/sentiment_analysis.py 'The customer service was terrible, I’ll never come back.'
-
+##### DAGster
+    % poetry run dagster dev -m orchestration.dagster
 
 
 
