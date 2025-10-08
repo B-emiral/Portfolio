@@ -28,7 +28,7 @@ async def _find_existing_sentiment(text: str) -> SentimentAnalysisEntity | None:
         return await repo.get_by_text_hash(text_hash)
 
 
-async def run_sentiment(
+async def run_sentiment_analysis(
     text: str,
     *,
     profile: str | None = None,
@@ -107,7 +107,7 @@ def analyze(
     doc_id: int = typer.Option(1, "--doc-id", help="Document ID"),
 ):
     async def main():
-        result, status = await run_sentiment(
+        result, status = await run_sentiment_analysis(
             text,
             profile=profile,
             temperature=temperature,

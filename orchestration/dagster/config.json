@@ -9,7 +9,7 @@
     "sents": 20
   },
   "schedules": {
-    "check_documents_interval": "*/5 * * * *",
-    "check_sentences_interval": "*/10 * * * *"
+    "check_documents_interval": "*/1 * * * *",
+    "check_sentences_interval": "*/1 * * * *"
   }
 }
