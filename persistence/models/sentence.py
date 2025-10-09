@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from pydantic import Field as PydField
 from sqlalchemy import Column, DateTime, Float, Index, String
@@ -11,10 +11,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
 
-from persistence.models.base import LLMOutputModel
-
-if TYPE_CHECKING:
-    from persistence.models.document import Document  # noqa: F401
+from persistence.models import LLMOutputModel
 
 
 class SentenceType(str, Enum):

@@ -4,17 +4,14 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
 
 import typer
 from loguru import logger
+from persistence.models.sentence import SentimentAnalysisEntity, SentimentLLM
 from persistence.session import get_async_session
 
 from tasks.base import GenericLLMTask
 from tasks.prompts.prompt_sentiment import build_sentiment_prompt
-
-if TYPE_CHECKING:
-    from persistence.models.sentence import SentimentAnalysisEntity, SentimentLLM
 
 
 async def _find_existing_sentiment(text: str) -> SentimentAnalysisEntity | None:
@@ -39,7 +36,35 @@ async def run_sentiment_analysis(
 ) -> tuple[SentimentLLM, str]:
     existing = await _find_existing_sentiment(text)
 
+    if existing is None:
+        logger.info(
+            "No existing sentiment analysis found, proceeding with new analysis."
+        )
+        from persistence.models.sentence import SentimentAnalysisEntity, SentimentLLM
+
+        llm_task = GenericLLMTask(
+            llm_output_model=SentimentLLM,
+            db_entity_model=SentimentAnalysisEntity,
+            mongo_coll_name="llm_calls_sentiment",
+            profile=profile,
+            temperature=temperature,
+        )
+
+        prompt = build_sentiment_prompt(text, in_context_learning)
+        logger.debug("Prompt prepared")
+
+        result = await llm_task.run(
+            user_role="user",
+            prompt=prompt,
+            operation_name="sentiment_analysis",
+            text=text,
+            doc_id=doc_id,
+        )
+
     if existing and existing.sentiment is not None and not override:
+        logger.info(
+            "Existing sentiment analysis found, skipping re-analysis (override=False)"
+        )
         from persistence.models.sentence import SentimentLLM
 
         cached_result = SentimentLLM(
@@ -49,28 +74,8 @@ async def run_sentiment_analysis(
         logger.info(f"Using cached sentiment id={existing.id}")
         return cached_result, "cached"
 
-    from persistence.models.sentence import SentimentAnalysisEntity, SentimentLLM
-
-    llm_task = GenericLLMTask(
-        llm_output_model=SentimentLLM,
-        db_entity_model=SentimentAnalysisEntity,
-        mongo_coll_name="llm_calls_sentiment",
-        profile=profile,
-        temperature=temperature,
-    )
-
-    prompt = build_sentiment_prompt(text, in_context_learning)
-    logger.debug("Prompt prepared")
-
-    result = await llm_task.run(
-        user_role="user",
-        prompt=prompt,
-        operation_name="sentiment_analysis",
-        text=text,
-        doc_id=doc_id,
-    )
-
     if existing and override:
+        logger.info("Existing sentiment analysis found, re-analyzing (override=True)")
         from persistence.repository.sentiment_analysis_repo import (
             SentimentAnalysisRepository,
         )

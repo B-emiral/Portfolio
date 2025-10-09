@@ -1,4 +1,4 @@
-# persistence/models/__init__.py
-from .document import Document, DocumentType
-from .sentence import SentimentAnalysisEntity, SentimentLLM
-from . import relationships  # noqa: F401
+# ./persistence/models/__init__.py
+from .base import LLMOutputModel  # noqa: F401
+from .document import Document  # noqa: F401
+from .sentence import Sentence, SentimentAnalysisEntity, SentimentLLM  # noqa: F401

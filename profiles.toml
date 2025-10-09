@@ -1,5 +1,4 @@
 # profiles.toml
-# TODO: fuse under single profile name
 [dev]
 llm_provider = "anthropic"
 llm_model = "claude-3-5-haiku-20241022"

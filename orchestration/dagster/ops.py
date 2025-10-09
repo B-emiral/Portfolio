@@ -5,7 +5,7 @@ from loguru import logger
 from persistence.repository.sentence_repo import SentenceRepository
 from tasks.add_document import add_document_from_json
 from tasks.analyse_sentiment_sentence import run_sentiment_analysis
-from utils.split_sentences import split_sentences_regex
+from tasks.split_sentences import split_sentences_regex
 
 from dagster import Out, op
 

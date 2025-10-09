@@ -3,16 +3,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING
 
 from pydantic import ConfigDict
 from sqlalchemy import Column, DateTime, String
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
-
-if TYPE_CHECKING:
-    from persistence.models.sentence import SentimentAnalysisEntity  # noqa: F401
 
 
 class DocumentType(str, Enum):
