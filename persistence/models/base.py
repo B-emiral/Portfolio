@@ -11,6 +11,7 @@ class LLMOutputModel(BaseModel):
     pass
 
 
+# TODO: remove persistable, if persist hook on then it is persistable
 @runtime_checkable
 class Persistable(Protocol):
     persistable: ClassVar[bool]

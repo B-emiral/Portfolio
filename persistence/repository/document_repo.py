@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from persistence.models.document import Document
 from persistence.models.sentence import Sentence
@@ -20,7 +20,7 @@ class DocumentRepository:
 
     async def create(self, doc: Document) -> Document:
         if not isinstance(doc, Document):
-            doc = Document(**doc)  # type: ignore[arg-type]
+            doc = Document(**doc)
         self.session.add(doc)
         await self.session.commit()
         await self.session.refresh(doc)
@@ -32,7 +32,7 @@ class DocumentRepository:
 
     async def list(self, limit: int = 50, offset: int = 0) -> list[Document]:
         result = await self.session.exec(select(Document).offset(offset).limit(limit))
-        return result.scalars().all()
+        return result.all()
 
     async def update(self, doc_id: int, **fields) -> Document | None:
         doc = await self.get(doc_id)
@@ -73,7 +73,6 @@ class DocumentRepository:
                 await self.session.flush()
                 await self.session.refresh(doc)
                 return doc, True
-            # update fields if changed
             changed = False
             for k, v in doc_data.items():
                 if hasattr(doc, k) and getattr(doc, k) != v:
@@ -98,7 +97,7 @@ class DocumentRepository:
         async with self.session.begin():
             for s in sentences:
                 if not isinstance(s, Sentence):
-                    s = Sentence(**s)  # type: ignore[arg-type]
+                    s = Sentence(**s)
                 s.doc_id = doc_id
                 self.session.add(s)
                 objs.append(s)
@@ -117,7 +116,7 @@ class DocumentRepository:
             async with self.session.begin():
                 doc = Document(**doc_data)
                 self.session.add(doc)
-                await self.session.flush()  # ensure doc.id is available
+                await self.session.flush()
                 objs: list[Sentence] = []
                 for s in sentences:
                     sent = Sentence(**s, doc_id=doc.id)
@@ -133,9 +132,6 @@ class DocumentRepository:
             raise
 
     async def find_by_hash(self, content_hash: str) -> Document | None:
-        """Find document by content hash."""
-        from sqlmodel import select
-
         stmt = select(Document).where(Document.content_hash == content_hash)
         result = await self.session.exec(stmt)
         return result.scalar_one_or_none()

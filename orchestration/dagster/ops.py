@@ -2,9 +2,9 @@
 import asyncio
 
 from loguru import logger
-from persistence.scripts.add_document import add_document_from_json
-from tasks.sentiment_analysis import run_sentiment_analysis
-from utils.get_unprocessed_documents import get_unprocessed_documents
+from persistence.repository.sentence_repo import SentenceRepository
+from tasks.add_document import add_document_from_json
+from tasks.analyse_sentiment_sentence import run_sentiment_analysis
 from utils.split_sentences import split_sentences_regex
 
 from dagster import Out, op
@@ -18,11 +18,11 @@ def ingest_add_document_op(_context, json_path):
 
 
 @op(out=Out(list))
-def get_unprocessed_documents_op(_context):
-    """Fetch unprocessed documents from DB."""
-    logger.info("Fetching unprocessed documents from DB...")
-    documents = asyncio.run(get_unprocessed_documents())
-    logger.info(f"Found {len(documents)} unprocessed documents.")
+def get_documents_without_sentences_op(_context):
+    """Fetch documents without sentences from DB."""
+    logger.info("Fetching documents without sentences from DB...")
+    documents = asyncio.run(SentenceRepository.get_documents_without_sentences())
+    logger.info(f"Found {len(documents)} documents without sentences.")
     return documents
 
 

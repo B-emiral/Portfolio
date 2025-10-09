@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 T = TypeVar("T", bound=SQLModel)
 
@@ -27,7 +27,7 @@ class BaseRepository(Generic[T]):
 
     async def get_by_id(self, session: AsyncSession, id: int) -> T | None:
         """Get entity by ID."""
-        result = await session.execute(select(self.model).where(self.model.id == id))
+        result = await session.exec(select(self.model).where(self.model.id == id))
         return result.scalar_one_or_none()
 
     async def update(self, session: AsyncSession, entity: T) -> T:

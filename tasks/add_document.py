@@ -13,7 +13,8 @@ from persistence.models.document import Document, DocumentType
 from persistence.session import get_async_session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from tasks.base import GenericLLMTask
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,7 @@ async def _handle_integrity_error(
         raise
 
     async with get_async_session() as session:
-        result = await session.execute(
+        result = await session.exec(
             select(Document).where(Document.content_hash == content_hash)
         )
         existing = result.scalar_one_or_none()
@@ -175,7 +176,7 @@ async def _add_document_logic(
 async def _find_existing_document(
     content_hash: str, session: AsyncSession
 ) -> Document | None:
-    result = await session.execute(
+    result = await session.exec(
         select(Document).where(Document.content_hash == content_hash)
     )
     return result.scalar_one_or_none()

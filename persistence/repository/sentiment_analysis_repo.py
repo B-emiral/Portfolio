@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from persistence.models.sentence import SentimentAnalysisEntity
 
@@ -17,7 +17,7 @@ class SentimentAnalysisRepository:
 
     async def get_by_text_hash(self, text_hash: str) -> SentimentAnalysisEntity | None:
         """Get sentiment analysis entity by text hash and doc_id."""
-        result = await self.session.execute(
+        result = await self.session.exec(
             select(SentimentAnalysisEntity).where(
                 SentimentAnalysisEntity.text_hash == text_hash
             )

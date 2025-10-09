@@ -9,8 +9,8 @@ DOC_DIR := $(PROJECT_DIR)/data/dev/documents
 
 # === SCRIPT PATHS ===
 CREATE_TABLES_SCRIPT := $(PROJECT_DIR)/persistence/scripts/create_tables.py
-ADD_DOCUMENT_SCRIPT  := $(PROJECT_DIR)/persistence/scripts/add_document.py
-SENTIMENT_SCRIPT     := $(PROJECT_DIR)/tasks/sentiment_analysis.py
+ADD_DOCUMENT_SCRIPT  := $(PROJECT_DIR)/tasks/add_document.py
+SENTIMENT_SCRIPT     := $(PROJECT_DIR)/tasks/analyse_sentiment_sentence.py
 
 # === DATABASE TASKS ===
 reset-db:

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from persistence.exceptions import DuplicateDocumentError
 from persistence.models.document import DocumentType
-from persistence.scripts.add_document import add_document_from_json
+from tasks.add_document import add_document_from_json
 
 
 @pytest.mark.asyncio

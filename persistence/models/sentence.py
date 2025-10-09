@@ -17,6 +17,32 @@ if TYPE_CHECKING:
     from persistence.models.document import Document  # noqa: F401
 
 
+class SentenceType(str, Enum):
+    CLOSED_CAPTION = "CLOSED_CAPTION"
+    INFORMATION = "INFORMATION"
+    LITERARY = "LITERARY"
+
+
+class Sentence(SQLModel, table=True):
+    id: int | None = SQLField(default=None, primary_key=True)
+    doc_id: int = SQLField(foreign_key="document.id", index=True, nullable=True)
+
+    sentence_type: SentenceType | None = SQLField(
+        sa_column=Column(SAEnum(SentenceType, name="sentence_type_enum"), nullable=True)
+    )
+    text: str = SQLField(sa_column=Column(String, nullable=False))
+    text_hash: str = SQLField(sa_column=Column(String, nullable=False, index=True))
+
+    created_at: datetime = SQLField(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: datetime = SQLField(
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+
 class SentimentLabel(str, Enum):
     POSITIVE = "positive"
     NEUTRAL = "neutral"
@@ -40,10 +66,6 @@ class SentenceBase(SQLModel, table=False):
     updated_at: datetime = SQLField(
         sa_column=Column(DateTime(timezone=True), nullable=False),
         default_factory=lambda: datetime.now(timezone.utc),
-    )
-    processed_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=True),
-        default=None,
     )
 
 

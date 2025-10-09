@@ -61,7 +61,7 @@ async def persist_sql(payload: dict[str, Any]) -> None:
                 doc_id=doc_id,
             )
 
-            result = await session.execute(
+            result = await session.exec(
                 select(db_entity_model).where(
                     db_entity_model.text_hash == text_hash,
                     db_entity_model.doc_id == doc_id,
@@ -91,7 +91,7 @@ async def _get_or_create_document(text: str, text_hash: str) -> int:
     from sqlalchemy import select
 
     async with get_async_session() as session:
-        result = await session.execute(
+        result = await session.exec(
             select(Document).where(Document.content_hash == text_hash)
         )
         doc = result.scalar_one_or_none()
