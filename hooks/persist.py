@@ -31,24 +31,28 @@ async def persist_sql(payload: dict[str, Any]) -> None:
 
     raw_response = response.get("content", [{}])[0].get("text", "{}")
 
+    # HACK
     if not all([text, response, llm_output_model_class]):
         logger.debug("persist_sql: missing required fields")
         return
 
     try:
+        # CHECK:
         import json
 
         from sqlalchemy import select
         from tasks.base import GenericLLMTask
-
-        text_hash = GenericLLMTask._compute_hash(text)
 
         response_data = json.loads(raw_response)
         llm_output_instance = llm_output_model_class(**response_data)
 
         logger.debug(f"persist_sql: validated LLM output: {llm_output_instance}")
 
-        doc_id = await _get_or_create_document(text, text_hash)
+        text_hash = GenericLLMTask._compute_hash(text)
+        # Relation logic
+        doc_id = payload.get("doc_id")
+        if not doc_id:
+            doc_id = await _get_or_create_document(text, text_hash)
 
         async with get_async_session() as session:
             repository_class = _get_repository_for_entity(db_entity_model)
@@ -84,30 +88,28 @@ async def persist_sql(payload: dict[str, Any]) -> None:
         raise
 
 
-async def _get_or_create_document(text: str, text_hash: str) -> int:
+async def _get_or_create_document(id: str, text: str, text_hash: str) -> int:
     """Get or create document for text."""
     from persistence.models.document import Document, DocumentType
+    from persistence.repository.document_repo import DocumentRepository
     from persistence.session import get_async_session
-    from sqlalchemy import select
 
     async with get_async_session() as session:
-        result = await session.exec(
-            select(Document).where(Document.content_hash == text_hash)
-        )
-        doc = result.scalar_one_or_none()
-
-        if not doc:
+        repo = DocumentRepository(session)
+        doc = await repo.get_by_id(id)
+        if doc:
+            logger.debug(f"Found document ID={doc.id}")
+            return doc.id
+        else:
             doc = Document(
-                title="Auto-generated from task",
+                title=f"Auto-generated from {_get_or_create_document.__name__}",
                 content=text,
                 content_hash=text_hash,
                 doc_type=DocumentType.SENTENCE,
             )
-            session.add(doc)
-            await session.flush()
+            created_doc = await repo.create(doc)
             logger.debug(f"Created document ID={doc.id}")
-
-        return doc.id
+            return created_doc.id
 
 
 def _get_repository_for_entity(entity_model: type) -> type:

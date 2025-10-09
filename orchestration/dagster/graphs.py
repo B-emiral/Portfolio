@@ -2,7 +2,7 @@
 from dagster import graph
 
 from .ops import (
-    analyze_sentences_op,
+    analyse_sentiment_sentence_op,
     get_documents_without_sentences_op,
     ingest_add_document_op,
     split_sentences_op,
@@ -19,4 +19,4 @@ def process_new_documents_graph():
     documents = get_documents_without_sentences_op()
     sentences = split_sentences_op(documents)
     # TODO: must be async
-    analyze_sentences_op(sentences)
+    analyse_sentiment_sentence_op(sentences)

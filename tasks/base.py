@@ -7,24 +7,28 @@ import hashlib
 from typing import Any, Generic, TypeVar
 
 from loguru import logger
-from persistence.models.base import LLMOutputModel, Persistable
+from persistence.models.base import (
+    LLMOutputModel,
+    Persistable,
+)  # REFACTOR: Remove persistable
 
-T_LLM = TypeVar("T_LLM", bound=LLMOutputModel)
+# CHECK
+T_LLM_Output_Model = TypeVar("T_LLM_Output_Model", bound=LLMOutputModel)
 T_Entity = TypeVar("T_Entity", bound=Persistable)
 
 
-class GenericLLMTask(Generic[T_LLM, T_Entity]):
+class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
     """
     Generic LLM task with automatic validation and persistence.
 
     Type Parameters:
-        T_LLM: LLM output validation model
+        T_LLM_Output_Model: LLM output validation model
         T_Entity: Persistable database entity
     """
 
     def __init__(
         self,
-        llm_output_model: type[T_LLM],
+        llm_output_model: type[T_LLM_Output_Model],
         db_entity_model: type[T_Entity] | None = None,
         mongo_coll_name: str | None = None,
         profile: str | None = None,
@@ -37,6 +41,7 @@ class GenericLLMTask(Generic[T_LLM, T_Entity]):
         self.temperature = temperature
 
     @staticmethod
+    # REVIEW: is this needed here or repo?
     def _compute_hash(text: str) -> str:
         """Compute MD5 hash of text."""
         return hashlib.md5(text.encode()).hexdigest()
@@ -57,6 +62,7 @@ class GenericLLMTask(Generic[T_LLM, T_Entity]):
     def _load_profile(self, profile_name: str) -> dict[str, Any]:
         """Load profile configuration."""
         try:
+            # TODO:
             from llm.profiles import ProfileStore
 
             store = ProfileStore()
@@ -80,7 +86,7 @@ class GenericLLMTask(Generic[T_LLM, T_Entity]):
         text: str | None = None,
         doc_id: int | None = None,
         **metadata: Any,
-    ) -> T_LLM:
+    ) -> T_LLM_Output_Model:
         """
         Run LLM task with automatic validation and persistence setup.
         """
@@ -122,6 +128,7 @@ class GenericLLMTask(Generic[T_LLM, T_Entity]):
         response_text = result.get("content", [{}])[0].get("text", "")
 
         try:
+            # CHECK
             import json
 
             parsed = json.loads(response_text)

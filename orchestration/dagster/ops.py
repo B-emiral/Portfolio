@@ -40,7 +40,7 @@ def split_sentences_op(_context, documents):
 
 
 @op(out=Out(list))
-def analyze_sentences_op(_context, sentences_batch):
+def analyse_sentiment_sentence_op(_context, sentences_batch):
     logger.info("Running sentiment analysis on new sentences...")
     analyzed = []
     for doc in sentences_batch:

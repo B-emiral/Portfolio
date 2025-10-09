@@ -6,5 +6,29 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "todo-tree.tree.scanMode": "workspace only"
+    "todo-tree.tree.scanMode": "workspace only",
+    "todo-tree.general.tags": [
+        "TODO",
+        "FIXME",
+        "BUG",
+        "HACK",
+        "XXX",
+        "NOTE",
+        "REVIEW",
+        "MARK",
+        "REMINDER",
+        "CHECK",
+        "OPTIMIZE",
+        "PERF",
+        "DEBUG",
+        "TEMP",
+        "INCOMPLETE",
+        "REFACTOR",
+        "QUESTION",
+        "IDEA",
+        "WONTFIX",
+        "DEPRECATED",
+        "[ ]",
+        "[x]"
+    ]
 }
