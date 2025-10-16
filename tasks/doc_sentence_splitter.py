@@ -1,4 +1,4 @@
-# ./tasks/split_sentences.py
+# ./tasks/doc_sentence_splitter.py
 from __future__ import annotations
 
 import asyncio

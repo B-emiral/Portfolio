@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from persistence.repository.sentence_repo import SentenceRepository
-from persistence.repository.sentiment_analysis_repo import SentenceSentimentRepository
+from persistence.repository.sentence_sentiment_repo import SentenceSentimentRepository
 from persistence.session import get_async_session
 
 from dagster import DefaultSensorStatus, RunRequest, SkipReason, sensor

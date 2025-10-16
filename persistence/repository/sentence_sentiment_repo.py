@@ -1,5 +1,4 @@
-# ./persistence/repository/sentiment_analysis_repo.py
-"""Repository for sentiment analysis entities."""
+# ./persistence/repository/sentence_sentiment_repo.py
 
 from __future__ import annotations
 
@@ -17,7 +16,6 @@ from persistence.models.sentence import (
 from persistence.repository.base_repo import BaseRepository
 
 
-# TODO: Change SentimentAnalysisRepository to SentenceSentimentRepository
 class SentenceSentimentRepository(BaseRepository):
     entity = SentenceSentimentEntity
     parent_entity = SentenceEntity
@@ -98,8 +96,6 @@ class SentenceSentimentRepository(BaseRepository):
             # REFACTOR: from_llm_output base method that must be overridden by subclass
             new_entity = SentenceSentimentEntity.from_llm_output(
                 llm_output=response_llm_instance,
-                text=text,
-                text_hash=self.compute_hash(text),
                 sentence_id=sentence_id,
             )
             await self.create(session, new_entity)

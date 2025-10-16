@@ -4,11 +4,11 @@ import asyncio
 from loguru import logger
 from persistence.models.sentence import SentenceType
 from persistence.repository.sentence_repo import SentenceRepository
-from persistence.repository.sentiment_analysis_repo import SentenceSentimentRepository
+from persistence.repository.sentence_sentiment_repo import SentenceSentimentRepository
 from persistence.session import get_async_session
 from tasks.add_document import add_document_from_json
 from tasks.analyse_sentiment_sentence import run_sentiment_analysis
-from tasks.split_sentences import split_sentences_regex
+from tasks.doc_sentence_splitter import split_sentences_regex
 
 from dagster import Out, op
 

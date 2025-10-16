@@ -1,4 +1,4 @@
-# ./tasks/sentiment_analysis.py
+# ./tasks/analyse_sentiment_sentence.py
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +10,7 @@ from persistence.models.sentence import (
     SentenceSentimentEntity,
     SentenceSentimentResponseModel,
 )
-from persistence.repository.sentiment_analysis_repo import SentenceSentimentRepository
+from persistence.repository.sentence_sentiment_repo import SentenceSentimentRepository
 from persistence.session import get_async_session
 
 from tasks.base import GenericLLMTask

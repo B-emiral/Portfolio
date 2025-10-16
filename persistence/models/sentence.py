@@ -74,12 +74,10 @@ class SentenceSentimentEntity(BaseEntityModel, table=True):
         cls,
         llm_output: SentenceSentimentResponseModel,
         sentence_id: int,
-        **extra_fields,
     ) -> SentenceSentimentEntity:
         return cls(
             sentence_id=sentence_id,
             sentiment=llm_output.sentiment,
             sentiment_confidence=llm_output.sentiment_confidence,
             sentiment_calls=1,
-            **extra_fields,
         )

@@ -2,11 +2,92 @@
 
 [https://github.com/B-emiral/Portfolio](https://github.com/B-emiral/Portfolio)
 
-# DESIGN
+## DESIGN
 High-level architecture (Modules & Adapters + Hooks)
 
-### LLM Package
+### GENERAL WORKFLOW
 ```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Orchestration (Dagster)                                                  │
+│ • Sensor: ingest_new_documents_sensor  ──► ingest_new_documents_job      │
+│ • Sensor: split_new_docs_into_sentences_and_persist_sensor ─► split job  │
+│ • Schedule: analyse_new_sentences_sentiment_schedule ─► analyse job      │
+└──────────────┬───────────────────────────────┬───────────────────────────┘
+               │                               │
+               ▼                               ▼
+      ┌───────────────────────┐        ┌──────────────────────────────────┐
+      │ ingest_add_document_op│        │ split_sentences_and_persist_op   │
+      └───────────┬───────────┘        └───────────────┬──────────────────┘
+                  │                                    │ sentences[]
+                  ▼                                    ▼
+        ┌───────────────────────────────┐     ┌──────────────────────────────┐
+        │ Persistence (SQLModel/SQLite) │     │ Persistence (SQLModel/SQLite)│
+        │ • session.get_async_session   │     │ • SentenceRepository         │
+        │ • DocumentRepository          │     │ • SentenceEntity             │
+        │ • DocumentEntity              │     │ • app.db                     │
+        │ • app.db                      │     └───────────────┬──────────────┘
+        └───────────────────────────────┘                     │ get_unprocessed()
+                                                              │ triggered by a sensor 
+                                                              │ on "sentences" table
+                                                              ▼
+                                                   ┌──────────────────────────────┐
+                                                   │ analyse_new_sentences_..._op │
+                                                   └───────────────┬──────────────┘
+                                                                   │ sentiments & confidences
+                                                                   ▼
+                                                   ┌──────────────────────────────┐
+                                                   │ Persistence (SQLModel/SQLite)│
+                                                   │ • SentenceSentimentRepository│
+                                                   │ • SentenceSentimentEntity    │
+                                                   └───────────────┬──────────────┘
+                                                                   │ per sentence
+                                                                   ▼
+                                                   ┌────────────────────────────────┐
+                                                   │ Tasks / LLM layer              │
+                                                   │ • tasks.sentiment_analysis     │
+                                                   │ • GenericLLMTask               │
+                                                   │    │                           │
+                                                   │    ▼                           │
+                                                   │ LLMClient (runner)             │
+                                                   │  • BEFORE HOOKS                │
+                                                   │  • Adapter (e.g. Anthropic)    │
+                                                   │  • AFTER HOOKS                 │
+                                                   └───────────────┬────────────────┘
+                                                                   │ normalized dict
+                                                                   ▼
+                                                   ┌───────────────────────────────┐
+                                                   │ Persist sentiment result      │
+                                                   │ • SentenceSentimentRepository │
+                                                   │ • app.db                      │
+                                                   └───────────────────────────────┘
+                           
+                           
+┌──────────────────────────────────────────────────────────────────────────┐
+│ LLM Package                                                              │
+│ profiles.toml ─► ProfileStore ─► LLMClient                               │
+│    BEFORE HOOKS ─► Adapter (e.g. Anthropic) ─► AFTER HOOKS               │
+│                                                                          │
+│    BEFORE HOOKS:                                                         │
+│    • hooks.log (Loguru)                                                  │
+│                                                                          │
+│    AFTER HOOKS include:                                                  │
+│    • hooks.langfuse (Langfuse SDK)                                       │
+│    • hooks.mongo (schemas.LLMCall ► MongoDB via db.py)                   │
+│    • hooks.guard (Guardrails repair/validate)                            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ Configuration                           │
+│ • ./.env (API keys)                     │
+│ • ./config.py (URIs, ports, table name) │
+│ • ./profiles.toml (LLM profiles/hooks)  │
+│ • ./orch/dagster/config.json            │
+└─────────────────────────────────────────┘ 
+```
+
+### LLM Workflow
+```
+
 ┌───────────────────────────────┐
 │           profiles.toml       │
 │  • env -> profile, hookset    │
@@ -22,7 +103,7 @@ High-level architecture (Modules & Adapters + Hooks)
                 │ (constructs)
                 ▼
 ┌───────────────────────────────┐
-│ runner.LLMClient              │
+│ llm/client.py (LLMClient)     │
 │  • holds adapter + hooks      │
 │  • orchestrates send()        │
 └───────────────┬───────────────┘
@@ -31,34 +112,24 @@ High-level architecture (Modules & Adapters + Hooks)
                 ▼
           ┌─────────────────────┐
           │ BEFORE HOOKS        │
-          │ (hooks.*)       │
+          │ (hooks.*)           │
           └─────────┬───────────┘
-                    │
+                    │ (e.g. loguru)
                     ▼
 ┌───────────────────────────────────────────┐
-│ adapters.AnthropicAdapter                 │
+│ llm/adapters.py (e.g. AnthropicAdapter)   │
 │  • INPUT: messages, temperature           │
-│  • ACTION: call Anthropic SDK             │
+│  • ACTION: call SDK                       │
 │  • OUTPUT: normalized dict response       │
 └───────────────┬───────────────────────────┘
                 │ (attach response to payload)
                 ▼
           ┌─────────────────────┐
           │ AFTER HOOKS         │
-          │ (hooks.*)       │
+          │ (hooks.*)           │
           └─────────┬───────────┘
                     │ (e.g. mongo, langfuse, guard)
                     ▼
-        ┌──────────────────────────┐
-        │ schemas.LLMCall          │
-        │  • validate payload      │
-        └──────────┬───────────────┘
-                   │ (insert)
-                   ▼
-        ┌──────────────────────────┐
-        │ db.py (MongoDB)          │
-        │  • insert_one()          │
-        └──────────────────────────┘
 ```
 
 ### SETUP
@@ -108,20 +179,22 @@ High-level architecture (Modules & Adapters + Hooks)
 - Language & Tooling
   - Python 3.12
   - Poetry (in-project virtualenv)
-- Core Libraries
+- Common Libraries
   - Pydantic v2 (data models & validation)
   - pydantic-settings (environment config)
   - AnyIO (async runtime)
   - Tenacity (retries with backoff)
-  - Loguru (hook)
+  - Loguru <- hook
 - LLM Layer
-  - Ports & Adapters pattern (custom AnthropicAdapter, OpenAI Adapter, etc.)
-  - Runner (LLMClient)
+  - Adapters pattern (custom AnthropicAdapter, OpenAI Adapter, etc.)
+  - Client (LLMClient:runner)
 - Guarding & Repair
   - Guardrails (Pydantic schema repair/validation)  <- hook
 - Observability
   - Langfuse SDK <- hook
 - Persistence
+  - SQLModel
+  - SQLAlchemy
   - MongoDB <- hook
   - Pydantic schema (LLMCall) for insert validation
 - Configuration
@@ -129,10 +202,8 @@ High-level architecture (Modules & Adapters + Hooks)
 - Analytics package
   - DuckDB
   - Polars
-- Data package
-  - SQLModel
-  - SQLAlchemy
-
+- Orchestration
+  - Dagster (sensors, schedules, multiprocess executor)
 
 ### Core components
 
@@ -146,8 +217,8 @@ High-level architecture (Modules & Adapters + Hooks)
     - send(): builds payload (messages, prompt, provider, model, temperature, output_model, trace_id=str(uuid4)), runs before hooks → adapter → attaches response → runs after hooks, returns response dict.
 
 - Adapter
-  - llm/adapters.AnthropicAdapter:
-    - Single responsibility: turn messages + params into Anthropic SDK call, normalize to a plain dict.
+  - llm/adapters:
+    - Single responsibility: turn messages + params into SDK call, normalize to a plain dict.
     - Network resilience: Tenacity retry on transient HTTP/timeouts (exponential backoff with jitter recommended).
 
 - Hooks (observer pattern)
@@ -174,7 +245,7 @@ High-level architecture (Modules & Adapters + Hooks)
 
 Resilience policies
 
-- Network-layer retry: in adapter (AnthropicAdapter.send) using Tenacity; handles 429/5xx/timeout with exponential backoff.
+- Network-layer retry: in adapter (e.g. AnthropicAdapter.send) using Tenacity; handles 429/5xx/timeout with exponential backoff.
 - Validation-layer retry: in GenericLLMTask only around JSON parsing
 - Hooks are best-effort: errors are logged and do not fail the main flow.
 
