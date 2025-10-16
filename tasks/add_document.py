@@ -9,13 +9,12 @@ from pathlib import Path
 from typing import Any
 
 import click
-from persistence.models.document import Document, DocumentType
+from persistence.models.document import DocumentEntity, DocumentType
+from persistence.repository.document_repo import DocumentRepository
 from persistence.session import get_async_session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from tasks.base import GenericLLMTask
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ def add_document_cli(json_path: str, log_level: str, skip_duplicates: bool) -> N
 
 
 def _handle_success_response(
-    document: Document, is_duplicate: bool, skip_duplicates: bool
+    document: DocumentEntity, is_duplicate: bool, skip_duplicates: bool
 ) -> None:
     """Handle successful document processing response."""
     if is_duplicate:
@@ -110,7 +109,7 @@ async def add_document_from_json(
     json_path: str,
     skip_duplicates: bool,
     session: AsyncSession | None = None,
-) -> tuple[Document, bool]:
+) -> tuple[DocumentEntity, bool]:
     """Add a document from JSON file to database."""
     json_path_obj = Path(json_path)
     logger.info(f"Loading document from {json_path}")
@@ -119,7 +118,7 @@ async def add_document_from_json(
     _validate_document_data(doc_data)
     doc_fields = _extract_document_fields(doc_data)
 
-    content_hash = GenericLLMTask._compute_hash(doc_fields["content"])
+    content_hash = DocumentRepository.compute_hash(doc_fields["content"])
     doc_fields["content_hash"] = content_hash
 
     if session:
@@ -136,7 +135,7 @@ async def _handle_integrity_error(
     error: IntegrityError,
     content_hash: str,
     skip_duplicates: bool,
-) -> tuple[Document, bool]:
+) -> tuple[DocumentEntity, bool]:
     if "UNIQUE constraint failed: document.content_hash" not in str(error):
         raise
 
@@ -145,7 +144,7 @@ async def _handle_integrity_error(
 
     async with get_async_session() as session:
         result = await session.exec(
-            select(Document).where(Document.content_hash == content_hash)
+            select(DocumentEntity).where(DocumentEntity.content_hash == content_hash)
         )
         existing = result.scalar_one_or_none()
         return existing, True
@@ -155,7 +154,7 @@ async def _add_document_logic(
     doc_fields: dict[str, Any],
     skip_duplicates: bool,
     session: AsyncSession,
-) -> tuple[Document, bool]:
+) -> tuple[DocumentEntity, bool]:
     """Core logic to insert or skip a document in the database."""
     content_hash = doc_fields["content_hash"]
 
@@ -165,7 +164,7 @@ async def _add_document_logic(
             logger.info(f"Document already exists: ID={existing.id}")
             return existing, True
 
-    document = Document(**doc_fields)
+    document = DocumentEntity(**doc_fields)
     session.add(document)
     await session.flush()
     await session.refresh(document)
@@ -175,9 +174,9 @@ async def _add_document_logic(
 
 async def _find_existing_document(
     content_hash: str, session: AsyncSession
-) -> Document | None:
+) -> DocumentEntity | None:
     result = await session.exec(
-        select(Document).where(Document.content_hash == content_hash)
+        select(DocumentEntity).where(DocumentEntity.content_hash == content_hash)
     )
     return result.scalar_one_or_none()
 

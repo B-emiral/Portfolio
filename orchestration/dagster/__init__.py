@@ -3,10 +3,18 @@ from dagster import Definitions
 
 from .config_loader import load_settings
 from .graphs import *  # noqa: F403
-from .jobs import *  # noqa: F403
+from .jobs import (
+    analyse_new_sentences_sentiment_job,
+    ingest_new_documents_job,
+    split_new_docs_into_sentences_and_persist_job,
+)
 from .ops import *  # noqa: F403
 from .schedules import *  # noqa: F403
-from .sensors import *  # noqa: F403
+from .sensors import (
+    analyse_new_sentences_sentiment_sensor,
+    ingest_new_documents_sensor,
+    split_new_docs_into_sentences_and_persist_sensor,
+)
 
 # DAGster uses these defs implicitly
 # ```
@@ -14,9 +22,17 @@ from .sensors import *  # noqa: F403
 #     return module.defs
 # ```
 defs = Definitions(
-    jobs=[ingest_new_documents_job, process_new_documents_job],  # noqa: F405
-    schedules=[document_check_schedule],  # noqa: F405
-    sensors=[new_files_sensor],  # noqa: F405
+    jobs=[
+        ingest_new_documents_job,
+        split_new_docs_into_sentences_and_persist_job,
+        analyse_new_sentences_sentiment_job,
+    ],  # noqa: F405
+    schedules=[analyse_new_sentences_sentiment_schedule],  # noqa: F405
+    sensors=[
+        ingest_new_documents_sensor,
+        split_new_docs_into_sentences_and_persist_sensor,
+        analyse_new_sentences_sentiment_sensor,
+    ],
     # context.resources.settings
     resources={"settings": load_settings()},
 )

@@ -1,14 +1,15 @@
 # ./persistence/models/document.py
 from __future__ import annotations
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 from pydantic import ConfigDict
-from sqlalchemy import Column, DateTime, String
+from sqlalchemy import Column, String
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field as SQLField
-from sqlmodel import SQLModel
+
+from persistence.models.base import BaseEntityModel
 
 
 class DocumentType(str, Enum):
@@ -23,10 +24,11 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-class Document(SQLModel, table=True):
+class DocumentEntity(BaseEntityModel, table=True):
+    __tablename__ = "documents"
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: int | None = SQLField(default=None, primary_key=True)
     title: str
     content: str
     doc_type: DocumentType = SQLField(
@@ -41,16 +43,3 @@ class Document(SQLModel, table=True):
         sa_column=Column(String, unique=True, index=True, nullable=True),
     )
     document_date: datetime | None = SQLField(default=None)
-
-    created_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    updated_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    processed_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=True),
-        default=None,
-    )

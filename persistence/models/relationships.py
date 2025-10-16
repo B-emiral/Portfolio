@@ -1,17 +1,17 @@
-# ./persistence/models/relationships.py
-from sqlalchemy.orm import relationship
+# # ./persistence/models/relationships.py
+# from sqlalchemy.orm import relationship
 
-from persistence.models.document import Document
-from persistence.models.sentence import SentimentAnalysisEntity
+# from persistence.models.document import Document
+# from persistence.models.sentence import SentenceSentimentAnalysisEntity
 
-Document.sentences = relationship(
-    "SentimentAnalysisEntity",
-    back_populates="document",
-    lazy="selectin",
-)
+# Document.sentences = relationship(
+#     "SentenceSentimentAnalysisEntity",
+#     back_populates="document",
+#     lazy="selectin",
+# )
 
-SentimentAnalysisEntity.document = relationship(
-    "Document",
-    back_populates="sentences",
-    lazy="selectin",
-)
+# SentenceSentimentAnalysisEntity.document = relationship(
+#     "Document",
+#     back_populates="sentences",
+#     lazy="selectin",
+# )

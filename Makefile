@@ -52,7 +52,24 @@ analyze-positive:
 
 analyze-override:
 	@echo "🔄 Re-running POSITIVE sentiment analysis with override..."
-	$(PYTHON) $(SENTIMENT_SCRIPT) "I love this product! It works perfectly and exceeded my expectations." --override
+	$(PYTHON) $(SENTIMENT_SCRIPT) "I love this product! It works perfectly and exceeded my expectations." --persist-override
+
+analyze-with-id1:
+	@echo "Running sentiment analysis on sentence ID 1..."
+	$(PYTHON) $(SENTIMENT_SCRIPT) "Gross domestic product expanded by 4.1% in the first quarter of 2025, reflecting strong consumer demand." --sentence-id 1
+
+analyze-with-id2:
+	@echo "Running sentiment analysis on sentence ID 2..."
+	$(PYTHON) $(SENTIMENT_SCRIPT) "The report also notes that employment levels remained broadly unchanged compared to the previous year." --sentence-id 2
+
+analyze-with-id3-false-id:
+	@echo "Running sentiment analysis on sentence ID 3..."
+	$(PYTHON) $(SENTIMENT_SCRIPT) "Global spending on artificial intelligence grew by 15% in 2025, with most investment concentrated in cloud-based services." --sentence-id 3
+analyze-with-id3-true-id:
+	@echo "Running sentiment analysis on sentence ID 4..."
+	$(PYTHON) $(SENTIMENT_SCRIPT) "Global spending on artificial intelligence grew by 15% in 2025, with most investment concentrated in cloud-based services." --sentence-id 4
+
+
 
 analyze-sentiment-samples: analyze-negative analyze-neutral analyze-positive analyze-override
 	@echo "✅ All sentiment analyses completed successfully."

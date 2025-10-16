@@ -5,3 +5,4 @@ ignore/
 *.drawio
 *drawio*
 .tmp_dagster_home_*
+*.DS_Store

@@ -1,27 +1,25 @@
 # ./persistence/models/base.py
 from __future__ import annotations
 
-from typing import ClassVar, Protocol, TypeVar, runtime_checkable
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
+from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
 
 
-class LLMOutputModel(BaseModel):
+class BaseEntityModel(SQLModel):
+    """Common fields and methods shared by all DB entities."""
+
+    id: int | None = SQLField(default=None, primary_key=True)
+    created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+
+    def touch(self):
+        self.updated_at = datetime.now(timezone.utc)
+
     pass
 
 
-# TODO: remove persistable, if persist hook on then it is persistable
-@runtime_checkable
-class Persistable(Protocol):
-    persistable: ClassVar[bool]
-
-    @classmethod
-    def from_llm_output(
-        cls, llm_output: LLMOutputModel, **extra_fields
-    ) -> "Persistable": ...
-
-    def update_from_llm_output(self, llm_output: LLMOutputModel) -> bool: ...
-
-
-T = TypeVar("T", bound=SQLModel)
+class BaseLLMResponseModel(BaseModel):
+    pass

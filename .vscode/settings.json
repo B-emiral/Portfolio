@@ -1,11 +1,20 @@
 {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "always"
+    },
+    "python.formatting.provider": "none",
+    "ruff.organizeImports": true,
+
+    // Linting
     "python.testing.pytestArgs": [
         "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+
+    // TODO Tree
     "todo-tree.tree.scanMode": "workspace only",
     "todo-tree.general.tags": [
         "TODO",
@@ -30,5 +39,12 @@
         "DEPRECATED",
         "[ ]",
         "[x]"
-    ]
+    ],
+    
+    "workbench.editor.revealIfOpen": true,
+    "workbench.editor.enablePreview": false,
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+
+
+    "editor.mouseWheelZoom": true
 }

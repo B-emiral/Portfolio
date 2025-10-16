@@ -2,7 +2,10 @@
 import asyncio
 
 from loguru import logger
+from persistence.models.sentence import SentenceType
 from persistence.repository.sentence_repo import SentenceRepository
+from persistence.repository.sentiment_analysis_repo import SentenceSentimentRepository
+from persistence.session import get_async_session
 from tasks.add_document import add_document_from_json
 from tasks.analyse_sentiment_sentence import run_sentiment_analysis
 from tasks.split_sentences import split_sentences_regex
@@ -17,45 +20,41 @@ def ingest_add_document_op(_context, json_path):
     return {"status": "success", "document": str(result)}
 
 
-@op(out=Out(list))
-def get_documents_without_sentences_op(_context):
-    """Fetch documents without sentences from DB."""
-    logger.info("Fetching documents without sentences from DB...")
-    documents = asyncio.run(SentenceRepository.get_documents_without_sentences())
-    logger.info(f"Found {len(documents)} documents without sentences.")
-    return documents
-
-
-@op(out=Out(list))
-def split_sentences_op(_context, documents):
+@op(out=Out(None))
+async def split_sentences_and_persist_op(_context):
     logger.info("Splitting sentences for unprocessed documents...")
-    unprocessed_docs = [doc for doc in documents if not doc.get("processed_at")]
-    for doc in unprocessed_docs:
-        doc["sentences"] = asyncio.run(split_sentences_regex(doc["content"]))
-    results = [
-        {"doc_id": doc["id"], "sentences": doc["sentences"]} for doc in unprocessed_docs
-    ]
-    logger.info(f"Split {len(results)} documents into sentences.")
-    return results
+
+    unprocessed_docs = None
+    async with get_async_session() as session:
+        unprocessed_docs = await SentenceRepository().get_unprocessed(session)
+        for doc in unprocessed_docs:
+            sentences = await split_sentences_regex(doc.content)
+
+            repo = SentenceRepository()
+            for sent in sentences:
+                entity = repo.entity(
+                    sentence_type=SentenceType.OTHER,
+                    text=sent,
+                    text_hash=repo.compute_hash(sent),
+                    **{repo.fk_field: doc.id},
+                )
+                await repo.create(session, entity)
+
+        logger.info(f"Split {len(unprocessed_docs)} documents into sentences.")
 
 
 @op(out=Out(list))
-def analyse_sentiment_sentence_op(_context, sentences_batch):
+async def analyse_new_sentences_sentiment_and_persist_op(_context):
     logger.info("Running sentiment analysis on new sentences...")
     analyzed = []
-    for doc in sentences_batch:
-        for sent in doc["sentences"]:
-            result, status = asyncio.run(
-                run_sentiment_analysis(sent, doc_id=doc["doc_id"])
+    unprocessed_sentences = None
+    async with get_async_session() as session:
+        unprocessed_sentences = await SentenceSentimentRepository.get_unprocessed(
+            session
+        )
+        for sentence in unprocessed_sentences:
+            model, status = await run_sentiment_analysis(
+                text=sentence.text, sentence_id=sentence.id, persist_override=False
             )
-            analyzed.append(
-                {
-                    "doc_id": doc["doc_id"],
-                    "text": sent,
-                    "sentiment": result.sentiment,
-                    "confidence": result.sentiment_confidence,
-                    "status": status,
-                }
-            )
-    logger.info(f"Analyzed {len(analyzed)} sentences.")
+            logger.info(f"Analyzed {model.__class__.__name__} with status {status}")
     return analyzed

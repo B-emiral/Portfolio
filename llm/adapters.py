@@ -1,6 +1,7 @@
 # llm/adapters.py
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -10,8 +11,9 @@ from config import settings
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 
-class LLMAdapter:
-    """Base adapter interface for LLM providers."""
+class BaseLLMAdapter:
+    async def parse_response(self, raw_response: dict) -> dict:
+        raise NotImplementedError
 
     async def send(
         self,
@@ -22,7 +24,7 @@ class LLMAdapter:
         raise NotImplementedError
 
 
-class AnthropicAdapter(LLMAdapter):
+class AnthropicAdapter(BaseLLMAdapter):
     """Anthropic adapter with tenacity-based retry handling."""
 
     def __init__(
@@ -36,6 +38,14 @@ class AnthropicAdapter(LLMAdapter):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.client = AsyncAnthropic(api_key=api_key or settings.anthropic_api_key)
+
+    @staticmethod
+    def parse_response(raw_response: dict) -> dict:
+        try:
+            text_json = raw_response["content"][0].get("text", "{}")
+            return json.loads(text_json)
+        except Exception:
+            return {}
 
     # server-level retry
     @retry(
@@ -68,20 +78,6 @@ class AnthropicAdapter(LLMAdapter):
         messages: list[dict[str, Any]],
         temperature: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Send messages to Anthropic API with automatic retry on transient failures.
-
-        Args:
-            messages: Chat messages in OpenAI format
-            temperature: Override default temperature
-
-        Returns:
-            API response as dictionary
-
-        Raises:
-            APIStatusError: On non-retriable API errors (4xx except 429)
-            Exception: On non-retriable errors after exhausting retries
-        """
         resp = await self.client.messages.create(
             model=self.model,
             messages=messages,

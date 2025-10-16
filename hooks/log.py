@@ -1,15 +1,25 @@
 # llm/hooks/log.py
 from __future__ import annotations
 
-from typing import Any
-
 from loguru import logger
 
+from hooks.payload import LLMHookPayload
 
-async def log_request(payload: dict[str, Any]) -> None:
+
+async def log_request(payload: LLMHookPayload) -> None:
+    """Log LLM request and response."""
+    if not payload.response_llm:
+        # For before hooks, log the request
+        logger.debug(
+            f"LLM Request: operation={payload.operation_name or 'unknown'}, "
+            f"model={payload.llm_model or 'unknown'}"
+        )
+        return
+
+    # For after hooks, log the response
     logger.info(
-        "LLM request prompt_preview={}",
-        (payload.get("prompt") or "")[:200],
-        "LLM response prompt_preview={}",
-        (payload.get("response") or "")[:200],
+        f"LLM Response: operation={payload.operation_name or 'unknown'}, "
+        f"model={payload.llm_model or 'unknown'}, "
+        f"prompt_chars={len(payload.prompt)}, "
+        f"response_chars={len(str(payload.response_llm))}"
     )

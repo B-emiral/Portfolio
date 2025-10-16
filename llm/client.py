@@ -2,21 +2,21 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Awaitable, Callable, Dict
+from typing import Awaitable, Callable
 
+import anyio
+from hooks.payload import LLMHookPayload
 from loguru import logger
 
-from .adapters import LLMAdapter
+from .adapters import BaseLLMAdapter
 
-Hook = Callable[[Dict[str, Any]], Awaitable[None]]
+Hook = Callable[[LLMHookPayload], Awaitable[None]]
 
 
 class LLMClient:
-    """Thin runner that executes adapter + optional before/after hooks."""
-
     def __init__(
         self,
-        adapter: LLMAdapter,
+        adapter: BaseLLMAdapter,
         before_hooks: list[Hook] | None = None,
         after_hooks: list[Hook] | None = None,
     ) -> None:
@@ -24,14 +24,12 @@ class LLMClient:
         self.before_hooks = before_hooks or []
         self.after_hooks = after_hooks or []
 
-    async def _run_hook(self, hook: Hook, payload: dict[str, Any]) -> None:
+    async def _run_hook(self, hook: Hook, payload: LLMHookPayload) -> None:
         try:
             if inspect.iscoroutinefunction(hook):
                 await hook(payload)
             else:
-                # if someone provided a sync function
-                import anyio
-
+                # Handle synchronous hooks
                 await anyio.to_thread.run_sync(hook, payload)
         except Exception as e:
             logger.error(
@@ -39,34 +37,42 @@ class LLMClient:
                 f"{hook.__name__ if hasattr(hook, '__name__') else str(hook)}: {e}"
             )
             logger.exception("Full hook error traceback:")
-            # Re-raise to prevent silent failures
             raise
 
-    async def _fire(self, hooks: list[Hook], payload: dict[str, Any]) -> None:
-        # Run hooks sequentially instead of parallel to avoid race conditions
+    async def _fire(self, hooks: list[Hook], payload: LLMHookPayload) -> None:
+        # Run hooks sequentially to avoid race conditions
         for hook in hooks:
             await self._run_hook(hook, payload)
 
-    async def send(
+    async def request_from_llm_with_hooks(
         self,
-        messages: list[dict[str, Any]],
-        prompt: str | None = None,
-        temperature: float | None = None,
-        **metadata: Any,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "messages": messages,
-            "prompt": prompt or "",
-            **metadata,
-        }
-
+        payload: LLMHookPayload,
+    ) -> LLMHookPayload | None:
         if self.before_hooks:
             await self._fire(self.before_hooks, payload)
 
-        resp = await self.adapter.send(messages=messages, temperature=temperature)
-        payload["response"] = resp
+        response = await self.adapter.send(
+            messages=payload.messages, temperature=payload.temperature
+        )
+
+        payload.response_llm = response
+        payload.response_llm_parsed = self.adapter.parse_response(response)
+
+        if payload.llm_output_model and payload.response_llm_parsed:
+            try:
+                payload.response_llm_instance = payload.llm_output_model(
+                    **payload.response_llm_parsed
+                )
+                logger.success(
+                    f"Instantiated {payload.llm_output_model.__name__} "
+                    "from LLM response"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to instantiate {payload.llm_output_model.__name__}: {e}"
+                )
 
         if self.after_hooks:
             await self._fire(self.after_hooks, payload)
 
-        return resp
+        return payload

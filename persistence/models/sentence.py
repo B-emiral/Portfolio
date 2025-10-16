@@ -1,43 +1,22 @@
 # ./persistence/models/sentence.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from enum import Enum
-from typing import ClassVar
 
 from pydantic import Field as PydField
-from sqlalchemy import Column, DateTime, Float, Index, String
+from sqlalchemy import Column, Float, Index, String
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field as SQLField
-from sqlmodel import SQLModel
+from sqlmodel import Relationship
 
-from persistence.models import LLMOutputModel
+from persistence.models.base import BaseEntityModel, BaseLLMResponseModel
 
 
 class SentenceType(str, Enum):
     CLOSED_CAPTION = "CLOSED_CAPTION"
     INFORMATION = "INFORMATION"
     LITERARY = "LITERARY"
-
-
-class Sentence(SQLModel, table=True):
-    id: int | None = SQLField(default=None, primary_key=True)
-    doc_id: int = SQLField(foreign_key="document.id", index=True, nullable=True)
-
-    sentence_type: SentenceType | None = SQLField(
-        sa_column=Column(SAEnum(SentenceType, name="sentence_type_enum"), nullable=True)
-    )
-    text: str = SQLField(sa_column=Column(String, nullable=False))
-    text_hash: str = SQLField(sa_column=Column(String, nullable=False, index=True))
-
-    created_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    updated_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
+    OTHER = "OTHER"
 
 
 class SentimentLabel(str, Enum):
@@ -46,33 +25,36 @@ class SentimentLabel(str, Enum):
     NEGATIVE = "negative"
 
 
-class SentimentLLM(LLMOutputModel):
+class SentenceSentimentResponseModel(BaseLLMResponseModel):
     sentiment: SentimentLabel
     sentiment_confidence: float = PydField(ge=0.0, le=1.0)
 
+    class Config:
+        from_attributes = True
 
-class SentenceBase(SQLModel, table=False):
-    id: int | None = SQLField(default=None, primary_key=True)
-    doc_id: int = SQLField(foreign_key="document.id", index=True, nullable=False)
+
+class SentenceEntity(BaseEntityModel, table=True):
+    __tablename__ = "sentences"
+
+    doc_id: int = SQLField(foreign_key="documents.id", index=True, nullable=True)
+    sentence_type: SentenceType | None = SQLField(
+        sa_column=Column(SAEnum(SentenceType, name="sentence_type_enum"), nullable=True)
+    )
     text: str = SQLField(sa_column=Column(String, nullable=False))
     text_hash: str = SQLField(sa_column=Column(String, nullable=False, index=True))
-    created_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
-    )
-    updated_at: datetime = SQLField(
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
+
+    # Orbit Relations
+    sentiment_analysis: SentenceSentimentEntity = Relationship(
+        back_populates="sentence",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
     )
 
 
-class SentimentAnalysisEntity(SentenceBase, table=True):
+class SentenceSentimentEntity(BaseEntityModel, table=True):
     __tablename__ = "sentences_sentiment"
-    __table_args__ = (
-        Index("ix_sentences_doc_text", "doc_id", "text_hash", unique=True),
-    )
+    __table_args__ = (Index("ix_sentences_doc_text", "sentence_id", unique=True),)
 
-    persistable: ClassVar[bool] = True
+    sentence_id: int = SQLField(foreign_key="sentences.id", index=True, nullable=False)
 
     sentiment: SentimentLabel | None = SQLField(
         sa_column=Column(
@@ -84,37 +66,20 @@ class SentimentAnalysisEntity(SentenceBase, table=True):
     )
     sentiment_calls: int = SQLField(default=0, nullable=False)
 
+    # Orbit Relations
+    sentence: SentenceEntity = Relationship(back_populates="sentiment_analysis")
+
     @classmethod
     def from_llm_output(
         cls,
-        llm_output: SentimentLLM,
-        text: str,
-        text_hash: str,
-        doc_id: int,
+        llm_output: SentenceSentimentResponseModel,
+        sentence_id: int,
         **extra_fields,
-    ) -> SentimentAnalysisEntity:
+    ) -> SentenceSentimentEntity:
         return cls(
-            doc_id=doc_id,
-            text=text,
-            text_hash=text_hash,
+            sentence_id=sentence_id,
             sentiment=llm_output.sentiment,
             sentiment_confidence=llm_output.sentiment_confidence,
             sentiment_calls=1,
             **extra_fields,
         )
-
-    def update_from_llm_output(self, llm_output: SentimentLLM) -> bool:
-        changed = False
-        if self.sentiment != llm_output.sentiment:
-            self.sentiment = llm_output.sentiment
-            changed = True
-        if (
-            abs((self.sentiment_confidence or 0.0) - llm_output.sentiment_confidence)
-            > 1e-6
-        ):
-            self.sentiment_confidence = llm_output.sentiment_confidence
-            changed = True
-        if changed:
-            self.sentiment_calls = (self.sentiment_calls or 0) + 1
-            self.updated_at = datetime.now(timezone.utc)
-        return changed

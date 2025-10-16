@@ -8,7 +8,10 @@ from guardrails import Guard
 from loguru import logger
 from pydantic import BaseModel
 
+from hooks.payload import LLMHookPayload
 
+
+# TODO: Make this adaptor agnostic!
 def _extract_text(response: dict[str, Any]) -> tuple[str | None, str]:
     content = response.get("content")
     if isinstance(content, list) and content:
@@ -19,7 +22,9 @@ def _extract_text(response: dict[str, Any]) -> tuple[str | None, str]:
     return None, "unknown"
 
 
+# CHECK: Adaptor agnostic?
 def _set_text(response: dict[str, Any], text: str, kind: str) -> None:
+    """Set text content in LLM response."""
     if kind == "list":
         if isinstance(response.get("content"), list) and response["content"]:
             response["content"][0]["text"] = text
@@ -27,13 +32,16 @@ def _set_text(response: dict[str, Any], text: str, kind: str) -> None:
         response["content"] = text
 
 
-async def guard_output(payload: dict[str, Any]) -> None:
-    response: dict[str, Any] = payload.get("response") or {}
+async def guard_output(payload: LLMHookPayload) -> None:
+    if not payload.response_llm:
+        return
+
+    response = payload.response_llm
     raw_text, kind = _extract_text(response)
     if not raw_text:
         return
 
-    output_model: type[BaseModel] | None = payload.get("output_model_class")
+    output_model = payload.llm_output_model
 
     if (
         output_model

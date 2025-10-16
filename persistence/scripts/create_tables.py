@@ -4,8 +4,8 @@
 import asyncio
 
 from config import settings
-from persistence.models.document import Document  # noqa: F401
-from persistence.models.sentence import SentimentAnalysisEntity  # noqa: F401
+from persistence.models.document import DocumentEntity  # noqa: F401
+from persistence.models.sentence import SentenceSentimentEntity  # noqa: F401
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 

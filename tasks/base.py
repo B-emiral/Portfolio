@@ -3,18 +3,17 @@
 
 from __future__ import annotations
 
-import hashlib
 from typing import Any, Generic, TypeVar
 
+from hooks.payload import LLMHookPayload
+from llm.client import LLMClient
+from llm.profiles import ProfileStore
 from loguru import logger
-from persistence.models.base import (
-    LLMOutputModel,
-    Persistable,
-)  # REFACTOR: Remove persistable
+from persistence.models.base import BaseLLMResponseModel
+from persistence.repository.base_repo import BaseRepository
 
-# CHECK
-T_LLM_Output_Model = TypeVar("T_LLM_Output_Model", bound=LLMOutputModel)
-T_Entity = TypeVar("T_Entity", bound=Persistable)
+T_LLM_Output_Model = TypeVar("T_LLM_Output_Model", bound=BaseLLMResponseModel)
+T_Entity = TypeVar("T_Entity")
 
 
 class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
@@ -23,7 +22,7 @@ class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
 
     Type Parameters:
         T_LLM_Output_Model: LLM output validation model
-        T_Entity: Persistable database entity
+        T_Entity: Database entity
     """
 
     def __init__(
@@ -31,24 +30,14 @@ class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
         llm_output_model: type[T_LLM_Output_Model],
         db_entity_model: type[T_Entity] | None = None,
         mongo_coll_name: str | None = None,
+        operation_name: str | None = None,
         profile: str | None = None,
-        temperature: float | None = None,
     ):
         self.llm_output_model = llm_output_model
         self.db_entity_model = db_entity_model
         self.mongo_coll_name = mongo_coll_name
+        self.operation_name = operation_name
         self.profile = profile
-        self.temperature = temperature
-
-    @staticmethod
-    # REVIEW: is this needed here or repo?
-    def _compute_hash(text: str) -> str:
-        """Compute MD5 hash of text."""
-        return hashlib.md5(text.encode()).hexdigest()
-
-    def _build_messages(self, user_role: str, content: str) -> list[dict[str, str]]:
-        """Build messages for LLM request."""
-        return [{"role": user_role, "content": content}]
 
     def _get_adapter(self, llm_provider: str, llm_model: str):
         """Get appropriate adapter based on provider."""
@@ -62,9 +51,6 @@ class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
     def _load_profile(self, profile_name: str) -> dict[str, Any]:
         """Load profile configuration."""
         try:
-            # TODO:
-            from llm.profiles import ProfileStore
-
             store = ProfileStore()
             return store.resolve(profile_name)
         except Exception as e:
@@ -78,20 +64,17 @@ class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
                 "hookset_after": [],
             }
 
-    async def run(
+    async def run_llm_request(
         self,
         user_role: str,
         prompt: str,
-        operation_name: str | None = None,
+        temperature: float | None = None,
         text: str | None = None,
-        doc_id: int | None = None,
-        **metadata: Any,
-    ) -> T_LLM_Output_Model:
-        """
-        Run LLM task with automatic validation and persistence setup.
-        """
-        from llm.client import LLMClient
-
+        ref_id: int | None = None,
+        ref_field_name: str | None = None,
+        repo: BaseRepository | None = None,
+        persist_override: bool = False,
+    ) -> LLMHookPayload | None:
         profile_name = self.profile or "dev"
         profile = self._load_profile(profile_name)
 
@@ -106,35 +89,23 @@ class GenericLLMTask(Generic[T_LLM_Output_Model, T_Entity]):
             after_hooks=profile.get("hookset_after", []),
         )
 
-        messages = self._build_messages(user_role=user_role, content=prompt)
-
-        result = await client.send(
-            messages=messages,
+        payload = LLMHookPayload(
             prompt=prompt,
-            temperature=self.temperature,
-            operation=operation_name,
+            messages=[{"role": user_role, "content": prompt}],
+            temperature=temperature,
+            operation_name=self.operation_name,
             llm_output_model=self.llm_output_model,
             db_entity_model=self.db_entity_model,
-            analyzed_text=text,
-            doc_id=doc_id,
+            repo=repo,
+            text=text,
+            ref_id=ref_id,
+            ref_field_name=ref_field_name,
+            persist_override=persist_override,
             mongo_coll_name=self.mongo_coll_name,
-            output_model=self.llm_output_model.__name__,
-            output_model_class=self.llm_output_model,
             llm_provider=profile["llm_provider"],
             llm_model=profile["llm_model"],
-            **metadata,
         )
 
-        response_text = result.get("content", [{}])[0].get("text", "")
+        payload = await client.request_from_llm_with_hooks(payload)
 
-        try:
-            # CHECK
-            import json
-
-            parsed = json.loads(response_text)
-            validated = self.llm_output_model(**parsed)
-            logger.debug(f"Validation OK with {self.llm_output_model.__name__}")
-            return validated
-        except Exception as e:
-            logger.error(f"Validation failed: {e}")
-            raise
+        return payload
