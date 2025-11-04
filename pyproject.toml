@@ -1,16 +1,40 @@
 [tool.poetry]
-name = "DT-LLM-SDM"
+name = "langops"
 version = "0.1.0"
-description = "A Modern LLM-Operations-Oriented Framework for Software Development Management"
+description = "A Modern LLM-Operations-Oriented Framework for Building and Managing LLM-Powered Applications"
 authors = ["Bilgehan Emiral <bilgehan.emiral@gmail.com>"]
+readme = "README.md"
+license = "GNU GENERAL PUBLIC LICENSE"
+repository = "https://github.com/B-emiral/Portfolio"
+keywords = ["LangOps", "Software Development", "Framework", "LLM", "NLP", "Data Science", "Automation"]
 packages = [
-    { include = "ingestion" },
-    { include = "data" },
+    { include = "hooks" },
     { include = "llm" },
+    { include = "orchestration" },
+    { include = "persistence" },
     { include = "tasks" },
-    { include = "analytics" },
-    { include = "utils" }
 ]
+
+include = [
+    { path = "data/**/*", format = "sdist" }
+]
+
+exclude = [
+        "ignore*", 
+        "cache*",
+        "tests*",
+        "Makefile",
+        "*.db",
+        "*.db-shm",
+        "*.db-wal",
+        "__pycache__*",
+        ".pytest_cache*",
+        ".ruff_cache*",
+        ".tmp_dagster_home_*",
+        ".venv*",
+        ".vscode*",
+        ".*/"
+    ]
 
 [tool.poetry.dependencies]
 python = "3.12.11"
@@ -21,21 +45,31 @@ anyio = "^4.0.0"
 tenacity = "^9.0.0"
 langfuse = ">=2.0,<3.0"
 anthropic = "^0.64.0"
-typer = ">=0.9,<0.16"   # downgraded to avoid guardrail
-rich = ">=13.6,<14"     # downgraded to avoid guardrail
+guardrails-ai = {version = "0.6.6", extras = ["pydantic"]}
+typer = ">=0.9,<0.16"   # downgraded to because of guardrail
+rich = ">=13.6,<14"     # downgraded to because of guardrail
+click = "8.1.7" # downgraded for dagster compatibility  
 loguru = "^0.7.3"
 dotenv = "^0.9.9"
 pydantic-settings = "^2.10.1"
 pymongo = "^4.14.1"
-guardrails-ai = {version = "0.6.6", extras = ["pydantic"]}
+motor = "^3.7.1" # for async mongo db ops
 dspy = "^3.0.3"
 sqlmodel = "^0.0.24"
 aiosqlite = "^0.21.0"
 greenlet = "^3.2.4"
-click = "8.1.7" # downgraded for dagster compatibility  
 dagster = "^1.11.13"
 dagster-webserver = "^1.11.13"
-motor = "^3.7.1" # for async mongo db ops
+scikit-learn = "^1.7.2"
+beautifulsoup4 = "^4.14.2"
+lxml = ">=4.9.3,<5.0.0" # downgraded to because of guardrail
+requests-cache = "^1.2.1"
+stanza = "^1.11.0"
+wordfreq = "^3.1.1"
+diskcache = "^5.6.3"
+nltk = "^3.9.2"
+async-lru = "^2.0.5"
+duckdb = "^1.4.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -50,14 +84,14 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 # Run Ruff on these paths
-src = ["./llm", "./config.py"]
+src = ["./llm","./client", "./persistence", "./config.py"]
 
 # Opt-in to rules
 select = [
     "E",   # pycodestyle (PEP8)
     "F",   # pyflakes
     "I",   # isort-like import sorting
-    "UP",  # pyupgrade (modern Python idioms)
+    "UP",  # pyupgrade
 ]
 
 # Respect Black's formatting style

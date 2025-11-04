@@ -45,6 +45,9 @@
     "workbench.editor.enablePreview": false,
     "workbench.editor.enablePreviewFromQuickOpen": false,
 
+    "editor.mouseWheelZoom": true,
 
-    "editor.mouseWheelZoom": true
+    "python.terminal.activateEnvironment": false,
+    "python.poetry.createEnvironment": false
+    
 }

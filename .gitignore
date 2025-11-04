@@ -1,8 +1,15 @@
 .env
+ignore/*
+cache/*
+tests/*
 __pycache__/
-ignore/
-*.db
+*.db*
+*.db-*
 *.drawio
 *drawio*
 .tmp_dagster_home_*
 *.DS_Store
+*_cache.sqlite
+Makefile
+*.pdf
+*.vscode/*

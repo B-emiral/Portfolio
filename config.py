@@ -6,6 +6,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="",
+        extra="ignore",
+    )
+
     # Anthropic
     anthropic_api_key: str = Field(alias="ANTHROPIC_API_KEY")
 
@@ -25,13 +32,6 @@ class Settings(BaseSettings):
     # SQL - SQLite (for dev)
     database_url: str = Field(
         alias="DATABASE_URL", default="sqlite+aiosqlite:///./app.db"
-    )
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        env_prefix="",
-        extra="ignore",
     )
 
 

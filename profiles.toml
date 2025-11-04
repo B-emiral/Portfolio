@@ -1,15 +1,15 @@
 # profiles.toml
 [dev]
 llm_provider = "anthropic"
-llm_model = "claude-3-5-haiku-20241022"
+llm_model = "claude-3-5-haiku-latest"
 hookset_before = [
-  "hooks.log_request"
+  "langops.hooks.log_request"
 ]
 hookset_after = [
-  "hooks.mongo_insert",
-  "hooks.langfuse_track",
-  "hooks.guard_output",
-  "hooks.persist_sql",
+  "langops.hooks.mongo_insert",
+  "langops.hooks.langfuse_track",
+  "langops.hooks.guard_output",
+  "langops.hooks.persist_sql",
 ]
 
 
@@ -18,14 +18,15 @@ hookset_after = [
 llm_provider = "anthropic"
 llm_model = "claude-3-5-sonnet-20241022"
 hookset_before = [
-  "hooks.log_request"
+  "langops.hooks.log_request"
 ]
 hookset_after = [
-  "hooks.langfuse_track",
-  "hooks.guard_output",
+  "langops.hooks.langfuse_track",
+  "langops.hooks.guard_output",
 ]
 
 
 
 
 
+ 

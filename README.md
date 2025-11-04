@@ -144,6 +144,7 @@ High-level architecture (Modules & Adapters + Hooks)
 
 ### DEV
 ##### Introduce & install new dependency
+    poetry env activate
     poetry add <new-lib>
 ##### Introduce Environment to VSCode Pylance
     poetry env info
