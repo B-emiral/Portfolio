@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langops"
-version = "0.1.0"
+version = "1.0.0"
 description = "A Modern LLM-Operations-Oriented Framework for Building and Managing LLM-Powered Applications"
 authors = ["Bilgehan Emiral <bilgehan.emiral@gmail.com>"]
 readme = "README.md"
@@ -8,11 +8,7 @@ license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/B-emiral/Portfolio"
 keywords = ["LangOps", "Software Development", "Framework", "LLM", "NLP", "Data Science", "Automation"]
 packages = [
-    { include = "hooks" },
-    { include = "llm" },
-    { include = "orchestration" },
-    { include = "persistence" },
-    { include = "tasks" },
+    { include = "langops" }
 ]
 
 include = [
