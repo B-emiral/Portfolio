@@ -1,6 +1,4 @@
 # ./persistence/repository/base_repo.py
-"""Base repository for common database operations."""
-
 from __future__ import annotations
 
 import hashlib
@@ -52,15 +50,37 @@ class BaseRepository:
         return result.one_or_none()
 
     async def create(
-        self, session: AsyncSession, entity: BaseEntityModel
+        self,
+        session: AsyncSession,
+        entity: BaseEntityModel,
+        process_id: str | None = None,
     ) -> BaseEntityModel:
+        if process_id is not None:
+            entity.process_id = process_id
+
         session.add(entity)
+        # refactor: optimize flush call according to logic
         await session.flush()
-        await session.refresh(entity)
         return entity
 
-    async def update(self, session: AsyncSession, updated_entity: BaseEntityModel):
+    async def create_many(
+        self,
+        session: AsyncSession,
+        entities: list[BaseEntityModel],
+    ) -> list[BaseEntityModel]:
+        if not entities:
+            return []
+
+        session.add_all(entities)
+        await session.flush()
+        return entities
+
+    async def update(
+        self, session: AsyncSession, updated_entity: BaseEntityModel
+    ) -> BaseEntityModel:
         merged = await session.merge(updated_entity)
+        merged.touch()
+        await session.flush()
         return merged
 
     async def update_partial(

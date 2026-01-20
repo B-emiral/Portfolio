@@ -1,34 +1,35 @@
 # ./persistence/session.py
 from __future__ import annotations
 
-import asyncio
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 
 from config import settings
 from loguru import logger
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlmodel import Session, create_engine
 from sqlmodel.ext.asyncio.session import AsyncSession as SQLModelAsyncSession
 
 _engine: AsyncEngine | None = None
 _SessionLocal: async_sessionmaker[AsyncSession] | None = None
 
 
-def init_engine(database_url: str | None = None) -> None:
+def init_engine_v2() -> None:
     global _engine, _SessionLocal
     if _engine is not None and _SessionLocal is not None:
-        return  # Already initialized
+        return
 
-    db_url = database_url or settings.database_url
-    logger.info("Initializing database connection: {}", db_url)
+    logger.info("Initializing database connection: {}", settings.database_url)
 
     _engine = create_async_engine(
-        db_url,
+        settings.database_url,
         echo=False,
         pool_size=5,
         max_overflow=10,
@@ -40,34 +41,30 @@ def init_engine(database_url: str | None = None) -> None:
     )
 
     _SessionLocal = async_sessionmaker(
-        _engine, class_=SQLModelAsyncSession, expire_on_commit=False, autoflush=False
+        _engine,
+        class_=SQLModelAsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
     )
 
-    asyncio.get_event_loop().create_task(_init_sqlite_pragmas())
 
-
-async def _init_sqlite_pragmas() -> None:
-    global _engine
-    if _engine is None:
-        return
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragmas_v2(dbapi_connection, connection_record):
     try:
-        async with _engine.begin() as conn:
-            await conn.exec_driver_sql("PRAGMA journal_mode = WAL;")
-            await conn.exec_driver_sql("PRAGMA synchronous = NORMAL;")
-            await conn.exec_driver_sql("PRAGMA temp_store = MEMORY;")
-        logger.debug("SQLite PRAGMA settings applied.")
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA temp_store=MEMORY")
+        cursor.close()
     except Exception as e:
-        logger.warning(f"Could not apply SQLite PRAGMAs: {e}")
+        logger.warning("Could not apply SQLite PRAGMAs: {}", e)
 
 
+# INFO: get_async_session is legacy, it will be removed
 @asynccontextmanager
 async def get_async_session() -> AsyncIterator[AsyncSession]:
-    global _SessionLocal
     if _SessionLocal is None:
-        init_engine()
-
-    if _SessionLocal is None:
-        raise RuntimeError("Database session could not be initialized")
+        init_engine_v2()
 
     async with _SessionLocal() as session:
         try:
@@ -78,3 +75,22 @@ async def get_async_session() -> AsyncIterator[AsyncSession]:
             raise
         finally:
             await session.close()
+
+
+@asynccontextmanager
+async def get_async_session_v2() -> AsyncIterator[AsyncSession]:
+    if _SessionLocal is None:
+        init_engine_v2()
+
+    async with _SessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
+@contextmanager
+def get_sync_session() -> Iterator[Session]:
+    engine = create_engine(url=settings.database_url_sync)
+    with Session(engine) as session:
+        yield session

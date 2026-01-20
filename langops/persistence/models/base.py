@@ -9,15 +9,12 @@ from sqlmodel import SQLModel
 
 
 class BaseEntityModel(SQLModel, table=False):
-    """Common fields and methods shared by all DB entities."""
-
     created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+    process_id: str | None = SQLField(default=None)
 
     def touch(self):
         self.updated_at = datetime.now(timezone.utc)
-
-    pass
 
 
 class BaseLLMResponseModel(BaseModel):
